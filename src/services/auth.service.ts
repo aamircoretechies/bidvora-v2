@@ -1,0 +1,88 @@
+import { api } from '@/lib/api';
+
+// ─── Response shapes (mirror the API contract) ───────────────────────────────
+
+export interface MeUserPayload {
+  id: number;
+  email: string;
+}
+
+export interface MeResponse {
+  success: true;
+  data: {
+    user: MeUserPayload;
+  };
+  meta?: Record<string, unknown>;
+}
+
+export interface RefreshResponse {
+  success: true;
+  data: {
+    accessToken: string;
+    refreshToken: string;
+  };
+  meta?: Record<string, unknown>;
+}
+
+// ─── Auth Service ─────────────────────────────────────────────────────────────
+
+/**
+ * Auth service — thin wrapper over `api` that owns all /auth/* endpoints.
+ *
+ * Each method maps 1-to-1 with an API route so callers never touch raw URLs.
+ */
+export const authService = {
+  /**
+   * GET /auth/me
+   *
+   * Returns the currently authenticated user based on the Bearer token.
+   * Called:
+   *   • Right after login (to hydrate the full user profile)
+   *   • On every protected-route mount via `verify()` (session check)
+   */
+  async getMe(): Promise<MeUserPayload> {
+    const response: MeResponse = await api.get('/auth/me');
+
+    if (!response.success || !response.data?.user) {
+      throw new Error('Unexpected response from /auth/me');
+    }
+
+    return response.data.user;
+  },
+
+  /**
+   * POST /auth/refresh
+   *
+   * Exchanges a valid refresh token for a new access + refresh token pair.
+   * Called automatically by the apiClient interceptor on 401 responses —
+   * do NOT call this from UI code; let the interceptor handle it.
+   *
+   * Uses a raw fetch (not api.post) to avoid triggering the 401 interceptor
+   * recursively when the refresh token itself is invalid.
+   */
+  async refresh(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const API_BASE_URL =
+      import.meta.env.VITE_API_BASE_URL ||
+      'https://freelancer-backend.coretechiestest.org/api/v1';
+
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Refresh token is invalid or expired');
+    }
+
+    const data: RefreshResponse = await response.json();
+
+    if (!data.success || !data.data?.accessToken) {
+      throw new Error('Unexpected response from /auth/refresh');
+    }
+
+    return data.data;
+  },
+};

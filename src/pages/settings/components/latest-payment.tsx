@@ -1,0 +1,51 @@
+import { Download } from 'lucide-react';
+import { toAbsoluteUrl } from '@/lib/helpers';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+
+const LatestPayment = () => {
+  const tables = [
+    { status: 'Type of Plan', info: 'Cloud One Enterprise' },
+    { status: 'Payment Date', info: '6 Aug, 2024' },
+    { status: 'Card used to pay:', logo: true, info: 'Ending 3604' },
+    { status: 'Total Payment:', info: '$24.00' },
+  ];
+
+  return (
+    <Card className="grow">
+      <CardHeader>
+        <CardTitle>Latest Payment</CardTitle>
+        <Button variant="outline">
+          <Download size={20} />
+          Download PDF
+        </Button>
+      </CardHeader>
+      <CardContent className="pt-4 pb-3 p-0">
+        <Table>
+          <TableBody>
+            {tables.map((table, index) => (
+              <TableRow key={index} className="border-0">
+                <TableCell className="text-sm text-secondary-foreground min-w-36 pb-5 pe-6 py-2">
+                  {table.status}
+                </TableCell>
+                <TableCell className="flex items-center gap-2.5 text-sm text-foreground py-2">
+                  {table.logo && (
+                    <img
+                      src={toAbsoluteUrl('/media/brand-logos/visa.svg')}
+                      className="w-10 shrink-0"
+                      alt="image"
+                    />
+                  )}
+                  {table.info}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+};
+
+export { LatestPayment };
