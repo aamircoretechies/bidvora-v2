@@ -47,16 +47,16 @@ function BidBanner() {
       </style>
 
       <Card className="rounded-xl bg-transparent shadow-none border-0">
-        <div className="rounded-[1.0rem] bg-gradient-to-r from-orange-500 via-amber-500 to-orange-400 p-4 relative overflow-hidden shadow-lg shadow-orange-500/20 group hover:shadow-orange-500/30 transition-all duration-500 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="rounded-[1.0rem] bg-gradient-to-r from-orange-500 via-amber-500 to-orange-400 p-4 relative overflow-hidden shadow-lg shadow-orange-500/20 group hover:shadow-orange-500/30 transition-all duration-500 flex flex-row items-center justify-between gap-6">
           <img
             src="https://images.unsplash.com/photo-1773751392385-8aa0495f2fbb?auto=format&fit=crop&q=80"
             alt="Premium abstract"
-            className="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-overlay"
+            className="absolute inset-0 w-full h-full object-cover opacity-10 mix-blend-overlay z-0"
           />
-          <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent skew-x-12 translate-x-full group-hover:-translate-x-[50%] transition-transform duration-1000 ease-in-out" />
+          <div className="absolute z-0 right-0 top-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent skew-x-12 translate-x-full group-hover:-translate-x-[50%] transition-transform duration-1000 ease-in-out" />
 
           {/* Text content */}
-          <div className="relative z-10 max-w-2xl">
+          <div className="relative z-0 max-w-2xl">
             {/* Status badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-medium mb-2 border border-white/20 shadow-sm">
               {isFetching
@@ -101,7 +101,7 @@ function BidBanner() {
           </div>
 
           {/* Animated orb */}
-          <div className="relative z-10 shrink-0 flex justify-center">
+          <div className="relative z-0 shrink-0 flex justify-center">
             <div className="relative w-36 h-36 flex items-center justify-center">
               {/* Glow */}
               <div
@@ -169,7 +169,7 @@ function ChatBanner() {
       </style>
 
       <Card className="rounded-xl bg-transparent shadow-none border-0">
-        <div className="rounded-[1.0rem] bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 p-4 relative overflow-hidden shadow-lg shadow-violet-500/20 group hover:shadow-violet-500/30 transition-all duration-500 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="rounded-[1.0rem] bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 p-4 relative overflow-hidden shadow-lg shadow-violet-500/20 group hover:shadow-violet-500/30 transition-all duration-500 flex flex-row items-center justify-between gap-6">
           <img
             src="https://images.unsplash.com/photo-1773751392385-8aa0495f2fbb?auto=format&fit=crop&q=80"
             alt="Premium abstract"
@@ -178,7 +178,7 @@ function ChatBanner() {
           <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent skew-x-12 translate-x-full group-hover:-translate-x-[50%] transition-transform duration-1000 ease-in-out" />
 
           {/* Text content */}
-          <div className="relative z-10 max-w-2xl">
+          <div className="relative z-0 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-medium mb-2 border border-white/20 shadow-sm">
               {isFetching
                 ? <LoaderCircle className="w-3 h-3 animate-spin" />
@@ -219,7 +219,7 @@ function ChatBanner() {
           </div>
 
           {/* Animated orb */}
-          <div className="relative z-10 shrink-0 flex justify-center">
+          <div className="relative z-0 shrink-0 flex justify-center">
             <div className="relative w-36 h-36 flex items-center justify-center">
               {/* Glow */}
               <div

@@ -14,6 +14,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import {
+  Download,
   EllipsisVertical,
   Filter,
   HelpCircle,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { api } from '@/lib/api';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -174,9 +176,9 @@ function ActionsCell({ row, onRetry }: { row: Row<IBid>; onRetry?: () => void })
           Withdraw Bid
         </DropdownMenuItem>
       </DropdownMenuContent>
-      <QuestionsModal 
-        open={isQuestionsModalOpen} 
-        onOpenChange={setIsQuestionsModalOpen} 
+      <QuestionsModal
+        open={isQuestionsModalOpen}
+        onOpenChange={setIsQuestionsModalOpen}
         questionsRaw={row.original.questions}
         projectId={row.original.projectId}
       />
@@ -204,6 +206,59 @@ const BiddingTable = () => {
   });
   const [sheetFilters, setSheetFilters] = useState(appliedFilters);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const dateParam = appliedFilters.date ? `?date=${appliedFilters.date}&format=json` : '?format=json';
+      const response = await api.get(`/export/processed${dateParam}`) as any;
+
+      if (response.success && response.data?.rows) {
+        const rows = response.data.rows;
+        if (rows.length === 0) {
+          toast.info('No data to export for this date');
+          return;
+        }
+
+        let csvContent = '';
+        if (typeof rows[0] === 'string') {
+          csvContent = rows.join('\n');
+        } else {
+          const headers = Object.keys(rows[0]);
+          csvContent = [
+            headers.join(','),
+            ...rows.map((row: any) =>
+              headers.map(header => {
+                const val = row[header];
+                const strVal = String(val ?? '');
+                if (strVal.includes(',') || strVal.includes('"') || strVal.includes('\n')) {
+                  return `"${strVal.replace(/"/g, '""')}"`;
+                }
+                return strVal;
+              }).join(',')
+            )
+          ].join('\n');
+        }
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `export_${appliedFilters.date || 'today'}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Export downloaded successfully');
+      } else {
+        toast.error('Failed to export data');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export data');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Reset to page 0 whenever filters change so we never land on a non-existent page
   useEffect(() => {
@@ -267,19 +322,32 @@ const BiddingTable = () => {
           <DataGridColumnHeader title="Time" column={column} />
         ),
         cell: ({ row }) => {
-          const date = new Date(row.original.createdAt);
-          const formatted = isNaN(date.getTime())
-            ? row.original.createdAt
-            : date.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+          const dateObj = new Date(row.original.createdAt);
+
+          if (isNaN(dateObj.getTime())) {
+            return (
+              <span className="text-secondary-foreground font-normal whitespace-nowrap">
+                {row.original.createdAt}
+              </span>
+            );
+          }
+
+          const timeStr = dateObj.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          const dateStr = dateObj.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
 
           return (
-            <span className="text-secondary-foreground font-normal whitespace-nowrap">
-              {formatted}
-            </span>
+            <div className="flex flex-col whitespace-nowrap">
+              <span className="text-secondary-foreground font-medium">
+                {timeStr}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {dateStr}
+              </span>
+            </div>
           );
         },
         enableSorting: true,
-        size: 180,
+        size: 120,
         meta: {
           cellClassName: '',
         },
@@ -514,11 +582,14 @@ const BiddingTable = () => {
                 }}
                 trigger={
                   <Button variant="primary">
-                    <Filter className="w-4 h-4 me-2" />
-                    Filters
+                    <Filter className="w-4 h-4 lg:me-2" />
+                    <span className='hidden lg:block'>Filters</span>
                   </Button>
                 }
               />
+              <Button variant="secondary" mode="icon" title='Export Filtered Data' onClick={handleExport} disabled={isExporting}>
+                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download />}
+              </Button>
             </div>
 
           </CardToolbar>

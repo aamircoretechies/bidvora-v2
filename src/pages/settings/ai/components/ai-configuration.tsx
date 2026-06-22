@@ -16,6 +16,7 @@ const AiConfiguration = () => {
   const [systemPrompt, setSystemPrompt] = useState('');
   const [portfolioItems, setPortfolioItems] = useState('');
   const [autoReplyDelay, setAutoReplyDelay] = useState(10);
+  const [fullConfig, setFullConfig] = useState<any>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -26,6 +27,7 @@ const AiConfiguration = () => {
         const response = await settingsService.getSettings();
         if (response.data?.botConfig) {
           const config = response.data.botConfig;
+          setFullConfig({ ...response.data.authConfig, ...response.data.botConfig });
           setSystemPrompt(config.systemPrompt || '');
           setPortfolioItems(config.portfolioItems || '');
           setAutoReplyDelay(config.autoReplyDelay ?? 10);
@@ -42,11 +44,22 @@ const AiConfiguration = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await settingsService.updateSettings({
+      const {
+        accessToken,
+        refreshToken,
+        expiresAt,
+        isFreelancerConnected,
+        key,
+        id,
+        ...payload
+      } = {
+        ...fullConfig,
         systemPrompt,
         portfolioItems,
         autoReplyDelay,
-      });
+      };
+
+      await settingsService.updateSettings(payload);
 
       toast.custom(
         (t) => (
@@ -71,6 +84,15 @@ const AiConfiguration = () => {
       setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="bg-transparent rounded-t-xl px-5 py-3 flex-row items-center gap-2">

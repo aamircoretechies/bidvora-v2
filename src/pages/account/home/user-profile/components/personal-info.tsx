@@ -56,32 +56,8 @@ const PersonalInfo = () => {
                 </Button>
               </TableCell>
             </TableRow>
-            <TableRow>
-              <TableCell className="py-3 text-secondary-foreground font-normal">
-                Birthday
-              </TableCell>
-              <TableCell className="py-3 text-secondary-foreground text-sm font-normal">
-                28 May 1996
-              </TableCell>
-              <TableCell className="py-3 text-center">
-                <Button variant="ghost" mode="icon">
-                  <SquarePen size={16} className="text-blue-500" />
-                </Button>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="py-3 text-secondary-foreground font-normal">
-                Gender
-              </TableCell>
-              <TableCell className="py-3 text-secondary-foreground text-sm font-normal">
-                Male
-              </TableCell>
-              <TableCell className="py-3 text-center">
-                <Button variant="ghost" mode="icon">
-                  <SquarePen size={16} className="text-blue-500" />
-                </Button>
-              </TableCell>
-            </TableRow>
+
+
             <TableRow>
               <TableCell className="py-3">Address</TableCell>
               <TableCell className="py-3 text-secondary-foreground text-sm font-normal">

@@ -86,61 +86,71 @@ const Integrations = ({ isFreelancerConnected = false, onConnected }: { isFreela
     return (
       <div
         key={index}
-        className="flex bg-primary/10 items-center justify-between flex-wrap  dark:bg-secondary-clarity rounded-xl gap-2 p-3.5"
+        className="relative flex flex-col md:flex-row bg-primary/10 items-start md:items-center justify-between dark:bg-secondary-clarity rounded-xl gap-3 md:gap-2 p-4 md:p-3.5"
       >
-        <div className="flex items-center flex-wrap gap-3.5">
+        <div className="flex items-center gap-3.5 pr-8 md:pr-0">
           <img
             src={toAbsoluteUrl(`/media/brand-logos/${item.logo}`)}
-            className="size-8 shrink-0"
+            className="size-[34px] shrink-0"
             alt="image"
           />
           <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <Link
-                to="#"
-                className="text-lg font-bold text-mono hover:text-primary-active"
-              >
-                {item.title}
-              </Link>
-              {/*  <Link
-                to="#"
-                className="text-sm text-secondary-foreground hover:text-primary-active"
-              >
-                {item.email}
-              </Link> */}
-            </div>
-            <span className="text-sm font-medium text-secondary-foreground">
+            <Link
+              to="#"
+              className="text-lg font-bold text-mono hover:text-primary-active leading-tight mb-0.5"
+            >
+              {item.title}
+            </Link>
+            <span className="text-sm font-medium text-secondary-foreground leading-tight">
               {item.email}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 lg:gap-5">
+
+        {/* Mobile Badge Container */}
+        <div className="flex md:hidden ml-[48px]">
+          {item.connected ? (
+            <Badge size="lg" className="rounded-full" variant="success" appearance="default">
+              <Check size={16} className="mr-1" /> Connected
+            </Badge>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleConnectFreelancer}
+              disabled={connecting}
+            >
+              {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-1" />}
+              Connect
+            </Button>
+          )}
+        </div>
+
+        {/* Desktop Actions + Mobile Settings Icon */}
+        <div className="flex items-center gap-2 lg:gap-5 absolute top-3.5 right-3 md:static md:top-auto md:right-auto">
           {item.connected ? (
             <>
-              <Badge size="lg" className='rounded-full' variant="success" appearance="default">
-                <Check size={18} /> Connected
+              {/* Badge hidden on mobile */}
+              <Badge size="lg" className="rounded-full hidden md:flex" variant="success" appearance="default">
+                <Check size={18} className="mr-1" /> Connected
               </Badge>
-              <Button variant="ghost" mode="icon" asChild>
+              <Button variant="ghost" mode="icon" asChild className="text-secondary-foreground size-8">
                 <Link to="/settings/bidding">
-                  <Settings />
+                  <Settings className="size-5" />
                 </Link>
               </Button>
             </>
           ) : (
-            <>
-              {/* <Badge size="lg" className='rounded-full' variant="destructive" appearance="light">
-                <X size={18} /> Disconnected
-              </Badge> */}
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleConnectFreelancer}
-                disabled={connecting}
-              >
-                {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-1" />}
-                Connect
-              </Button>
-            </>
+            <Button
+              variant="primary"
+              size="sm"
+              className="hidden md:flex"
+              onClick={handleConnectFreelancer}
+              disabled={connecting}
+            >
+              {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-1" />}
+              Connect
+            </Button>
           )}
         </div>
       </div>
