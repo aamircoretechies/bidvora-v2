@@ -4,9 +4,42 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { freelancerService } from '@/services/freelancer.service';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 const ApiKeys = ({ data, onChange }: { data?: any, onChange?: (field: string, val: any) => void }) => {
   const [showSecret, setShowSecret] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefreshConnection = async () => {
+    try {
+      setRefreshing(true);
+      const response = await freelancerService.getFreelancerAuthorizeUrl();
+
+      if (response.success && response.data?.url) {
+        const width = 600;
+        const height = 700;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+
+        const popup = window.open(
+          response.data.url,
+          'Reconnect Freelancer',
+          `width=${width},height=${height},top=${top},left=${left},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+        );
+
+        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+          // Popup blocked — fallback to redirect
+          window.location.href = response.data.url;
+        }
+      }
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to get Freelancer authorization URL');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <Card>
@@ -42,8 +75,13 @@ const ApiKeys = ({ data, onChange }: { data?: any, onChange?: (field: string, va
             </Button>
           </div>
         </div>
-        <Button variant="primary" className="w-full gap-2">
-          <RefreshCw className="size-4" />
+        <Button
+          variant="primary"
+          className="w-full gap-2"
+          onClick={handleRefreshConnection}
+          disabled={refreshing}
+        >
+          {refreshing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
           Refresh Connection
         </Button>
       </CardContent>

@@ -260,11 +260,8 @@ const BiddingTable = () => {
     }
   };
 
-  // Reset to page 0 whenever filters change so we never land on a non-existent page
-  useEffect(() => {
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [appliedFilters]);
-
+  // Single effect: fetch bids whenever pagination or applied filters change.
+  // Page resets are handled directly in onApply/onReset so they're synchronous.
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchBids({
@@ -276,14 +273,17 @@ const BiddingTable = () => {
         country: appliedFilters.country || undefined,
         skill: appliedFilters.skill || undefined,
       });
-    }, 300); // 300ms debounce
+    }, 300);
     return () => clearTimeout(timeoutId);
-  }, [pagination.pageIndex, pagination.pageSize, appliedFilters, fetchBids]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.pageIndex, pagination.pageSize, appliedFilters]);
 
   // We are handling sorting and filtering server-side now (if the API supports it),
   // but if we need local fallback for data already fetched, we can use filteredData.
   // Assuming the API returns the exact filtered set:
   const filteredData = data;
+
+  const hasActiveFilters = Object.values(appliedFilters).some(val => val !== '');
 
   const columns = useMemo<ColumnDef<IBid>[]>(
     () => [
@@ -575,15 +575,22 @@ const BiddingTable = () => {
                   const reset = { search: '', status: '', date: '', country: '', skill: '' };
                   setSheetFilters(reset);
                   setAppliedFilters(reset);
+                  // Reset to page 1 synchronously
+                  setPagination(prev => ({ ...prev, pageIndex: 0 }));
                 }}
                 onApply={() => {
+                  // Reset to page 1 synchronously before applying new filters
+                  setPagination(prev => ({ ...prev, pageIndex: 0 }));
                   setAppliedFilters(sheetFilters);
                   setIsSheetOpen(false);
                 }}
                 trigger={
-                  <Button variant="primary">
+                  <Button variant="primary" className="relative">
                     <Filter className="w-4 h-4 lg:me-2" />
                     <span className='hidden lg:block'>Filters</span>
+                    {hasActiveFilters && (
+                      <span className="absolute top-1 right-1 size-2.5 rounded-full bg-destructive shadow-sm" />
+                    )}
                   </Button>
                 }
               />
