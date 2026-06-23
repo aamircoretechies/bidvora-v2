@@ -27,11 +27,11 @@ const Statistics = ({ details }: IStatisticsProps) => {
   // Prevent infinite retry loops — only attempt one refresh per mount
   const hasRetried = useRef(false);
 
-  const applyStats = (data: { totalBids: number; bidsWon: number; activeProjects: number }) => {
+  const applyStats = (data: { totalBids: number; successfulBids: number; actionRequired: number }) => {
     setStats(prev => prev.map((item, index) => {
       if (index === 0) return { ...item, number: data.totalBids ?? item.number };
-      if (index === 1) return { ...item, number: data.bidsWon ?? item.number };
-      if (index === 2) return { ...item, number: data.activeProjects ?? item.number };
+      if (index === 1) return { ...item, number: data.successfulBids ?? item.number };
+      if (index === 2) return { ...item, number: data.actionRequired ?? item.number };
       return item;
     }));
   };

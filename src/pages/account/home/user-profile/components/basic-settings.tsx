@@ -7,11 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 
+import { useAuth } from '@/auth/context/auth-context';
+
 interface IBasicSettingsProps {
   title: string;
 }
 
 const BasicSettings = ({ title }: IBasicSettingsProps) => {
+  const { user } = useAuth();
+  const displayEmail = user?.email || 'Loading...';
+
   return (
     <Card className="min-w-full">
       <CardHeader>
@@ -30,7 +35,7 @@ const BasicSettings = ({ title }: IBasicSettingsProps) => {
                   to="#"
                   className="text-foreground font-normal text-sm hover:text-primary-active"
                 >
-                  jasontt@studio.co
+                  {displayEmail}
                 </Link>
               </TableCell>
               <TableCell className="py-2 max-w-16 text-end">

@@ -39,16 +39,16 @@ export function BiddingContent() {
     try {
       setSaving(true);
       // Exclude tokens and readonly fields from the payload
-      const { 
-        accessToken, 
-        refreshToken, 
-        expiresAt, 
-        isFreelancerConnected, 
-        key, 
-        id, 
-        ...payload 
+      const {
+        accessToken,
+        refreshToken,
+        expiresAt,
+        isFreelancerConnected,
+        key,
+        id,
+        ...payload
       } = data as any;
-      
+
       const response = await settingsService.updateSettings(payload);
       if (response.success) {
         toast.success('Settings updated successfully');
@@ -69,11 +69,11 @@ export function BiddingContent() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-7.5">
-      <div className="col-span-1">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-7.5 items-stretch">
+      <div className="col-span-2 lg:col-span-1 ">
         <ApiKeys data={data} onChange={handleChange} />
       </div>
-      <div className="col-span-1">
+      <div className="col-span-2 lg:col-span-1 ">
         <ExecutionLimits data={data} onChange={handleChange} />
       </div>
       <div className="col-span-2">

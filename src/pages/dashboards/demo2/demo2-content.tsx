@@ -263,8 +263,8 @@ export function Demo2Content() {
 
   const demo9Statistics: IStatisticsItems = [
     { image: 'bid.png', number: '1,200', label: 'Total Bids' },
-    { image: 'hammer.png', number: '800', label: 'Won Bids' },
-    { image: 'freelancer.svg', number: '200', label: 'Active Projects' },
+    { image: 'hammer.png', number: '800', label: 'Successful Bids' },
+    { image: 'action.png', number: '200', label: 'Action Required' },
   ];
 
   if (isLoading) {
@@ -276,9 +276,9 @@ export function Demo2Content() {
   }
 
   return (
-    <div className="grid gap-5 lg:gap-7.5">
+    <div className="grid gap-5 lg:gap-7.5 items-start">
 
-      <div className="grid lg:grid-cols-3 gap-y-5 lg:gap-7.5 items-stretch">
+      <div className="grid lg:grid-cols-3 gap-y-5 lg:gap-7.5 items-start">
         <div className="lg:col-span-3 flex flex-col gap-5 lg:gap-5">
           <Integrations isFreelancerConnected={dashboardData?.isFreelancerConnected ?? false} onConnected={() => refetch()} />
         </div>

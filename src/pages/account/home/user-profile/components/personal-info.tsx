@@ -33,7 +33,7 @@ const PersonalInfo = () => {
                 Name
               </TableCell>
               <TableCell className="py-2 text-foreground font-normaltext-sm">
-                Jason Tatum
+                Rohit Gahlot
               </TableCell>
               <TableCell className="py-2 text-center">
                 <Button variant="ghost" mode="icon">
@@ -58,7 +58,7 @@ const PersonalInfo = () => {
             </TableRow>
 
 
-            <TableRow>
+            {/*  <TableRow>
               <TableCell className="py-3">Address</TableCell>
               <TableCell className="py-3 text-secondary-foreground text-sm font-normal">
                 You have no an address yet
@@ -68,7 +68,7 @@ const PersonalInfo = () => {
                   <Link to="#">Add</Link>
                 </Button>
               </TableCell>
-            </TableRow>
+            </TableRow> */}
           </TableBody>
         </Table>
       </CardContent>

@@ -50,7 +50,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
 
   const displayEmail = user?.email || '';
   // const displayAvatar = user?.pic || toAbsoluteUrl('/media/avatars/300-2.png');
-  const displayAvatar = toAbsoluteUrl('/media/avatars/300-2.png');
+  const displayAvatar = toAbsoluteUrl('/media/avatars/blank.png');
 
   const handleLanguage = (lang: Language) => {
     changeLanguage(lang);
@@ -66,22 +66,22 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
       <DropdownMenuContent className="w-64" side="bottom" align="end">
         {/* Header */}
         <div className="flex items-center justify-between p-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <img
-              className="size-9 rounded-full border-2 border-green-500"
+              className="size-9 rounded-full border-2 border-green-500 shrink-0"
               src={displayAvatar}
               alt="User avatar"
             />
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <Link
-                to="/account/home/get-started"
-                className="text-sm text-mono hover:text-primary font-semibold"
+                to="/account/home/user-profile"
+                className="text-sm text-mono hover:text-primary font-semibold truncate"
               >
                 {displayName}
               </Link>
               <a
                 href={`mailto:${displayEmail}`}
-                className="text-xs text-muted-foreground hover:text-primary"
+                className="text-xs text-muted-foreground hover:text-primary truncate"
               >
                 {displayEmail}
               </a>

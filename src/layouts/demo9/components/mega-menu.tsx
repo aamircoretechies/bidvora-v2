@@ -129,7 +129,7 @@ export function MegaMenu() {
         </NavigationMenuItem> */}
 
         {/* Chats Item */}
-        <NavigationMenuItem>
+        {/*  <NavigationMenuItem>
           <NavigationMenuLink asChild>
             <Link
               to={chatsItem.path || '/'}
@@ -140,7 +140,7 @@ export function MegaMenu() {
               {chatsItem.title}
             </Link>
           </NavigationMenuLink>
-        </NavigationMenuItem>
+        </NavigationMenuItem> */}
 
         {/* Subscription Item */}
         <NavigationMenuItem>

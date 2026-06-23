@@ -21,35 +21,35 @@ export function Footer() {
           <nav className="flex order-1 md:order-2 gap-4 font-normal text-sm text-muted-foreground">
 
             <a
-              href={generalSettings.purchaseLink}
+              href={generalSettings.purchase}
               target="_blank"
               className="hover:text-primary"
             >
               Purchase
             </a>
             <a
-              href={generalSettings.faqLink}
+              href={generalSettings.faq}
               target="_blank"
               className="hover:text-primary"
             >
               FAQ
             </a>
             <a
-              href="#"
+              href={generalSettings.support}
               target="_blank"
               className="hover:text-primary"
             >
               Support
             </a>
             <a
-              href={generalSettings.licenseLink}
+              href={generalSettings.terms}
               target="_blank"
               className="hover:text-primary"
             >
               Terms
             </a>
             <a
-              href={generalSettings.licenseLink}
+              href={generalSettings.pp}
               target="_blank"
               className="hover:text-primary"
             >

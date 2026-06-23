@@ -42,7 +42,7 @@ const ApiKeys = ({ data, onChange }: { data?: any, onChange?: (field: string, va
   };
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader className="bg-success/10 border-b border-success/30 rounded-t-xl px-5 py-3">
         <CardTitle className="text-success text-base">Freelancer API Keys</CardTitle>
       </CardHeader>

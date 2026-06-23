@@ -88,7 +88,7 @@ const KnowledgeBase = () => {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="e.g. We specialize in Node.js, React, and Python. We do not take projects under $500..."
-            rows={5}
+            rows={15}
             className="text-sm resize-none"
           />
         </div>
