@@ -85,4 +85,40 @@ export const authService = {
 
     return data.data;
   },
+
+  /**
+   * POST /auth/forgot-password
+   * Request a password reset email
+   */
+  async forgotPassword(email: string): Promise<{ success: boolean; meta?: any }> {
+    const response = await api.post('/auth/forgot-password', { email }) as any;
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to request password reset');
+    }
+    return response;
+  },
+
+  /**
+   * GET /auth/reset-password/{token}
+   * Check if reset token is valid
+   */
+  async checkResetToken(token: string): Promise<{ valid: boolean }> {
+    const response = await api.get(`/auth/reset-password/${token}`) as any;
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Invalid or expired token');
+    }
+    return response.data;
+  },
+
+  /**
+   * POST /auth/reset-password/{token}
+   * Set new password with reset token
+   */
+  async resetPassword(token: string, password: string): Promise<{ success: boolean; meta?: any }> {
+    const response = await api.post(`/auth/reset-password/${token}`, { password }) as any;
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to reset password');
+    }
+    return response;
+  },
 };

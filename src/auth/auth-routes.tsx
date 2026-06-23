@@ -33,6 +33,10 @@ export const authRoutes: RouteObject[] = [
         path: 'reset-password',
         element: <ResetPasswordPage />,
       },
+      {
+        path: 'reset-password/:token',
+        element: <ChangePasswordPage />,
+      },
       /* Extended examples */
       {
         path: '2fa',
@@ -71,6 +75,10 @@ export const authRoutes: RouteObject[] = [
       {
         path: 'classic/reset-password',
         element: <ResetPasswordPage />,
+      },
+      {
+        path: 'classic/reset-password/:token',
+        element: <ChangePasswordPage />,
       },
       /* Extended examples */
       {

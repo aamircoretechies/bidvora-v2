@@ -107,7 +107,12 @@ import { SubscriptionPage } from '@/pages/settings/subscription';
 import { BiddingPage } from '@/pages/settings/bidding';
 import { AiPage } from '@/pages/settings/ai';
 import { FreelancerCallbackPage } from '@/pages/freelancer/callback';
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useParams } from 'react-router';
+
+const ResetPasswordRedirect = () => {
+  const { token } = useParams<{ token: string }>();
+  return <Navigate to={`/auth/reset-password/${token}`} replace />;
+};
 
 export function AppRoutingSetup() {
   return (
@@ -404,6 +409,7 @@ export function AppRoutingSetup() {
           <Route path="/auth/get-started" element={<AccountGetStartedPage />} />
         </Route>
       </Route>
+      <Route path="reset-password/:token" element={<ResetPasswordRedirect />} />
       <Route path="error/*" element={<ErrorRouting />} />
       <Route path="auth/*" element={<AuthRouting />} />
       <Route path="*" element={<Navigate to="/error/404" />} />

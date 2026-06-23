@@ -53,13 +53,13 @@ export function SignInPage() {
         case 'auth_callback_error':
           setError(
             errorDescription ||
-              'An error occurred during authentication. Please try again.',
+            'An error occurred during authentication. Please try again.',
           );
           break;
         case 'auth_token_error':
           setError(
             errorDescription ||
-              'Failed to set authentication session. Please try again.',
+            'Failed to set authentication session. Please try again.',
           );
           break;
         default:
@@ -74,8 +74,8 @@ export function SignInPage() {
   const form = useForm<SigninSchemaType>({
     resolver: zodResolver(getSigninSchema()),
     defaultValues: {
-      email: 'demo@kt.com',
-      password: 'demo123',
+      email: '',
+      password: '',
       rememberMe: true,
     },
   });
@@ -157,7 +157,7 @@ export function SignInPage() {
           </p>
         </div>
 
-        <Alert appearance="light" size="sm" close={false}>
+        {/* <Alert appearance="light" size="sm" close={false}>
           <AlertIcon>
             <AlertCircle className="text-primary" />
           </AlertIcon>
@@ -165,9 +165,9 @@ export function SignInPage() {
             Use <strong>demo@kt.com</strong> username and {` `}
             <strong>demo123</strong> password for demo access.
           </AlertTitle>
-        </Alert>
+        </Alert> */}
 
-        <div className="flex flex-col gap-3.5">
+        {/*   <div className="flex flex-col gap-3.5">
           <Button
             variant="outline"
             type="button"
@@ -185,16 +185,16 @@ export function SignInPage() {
               </>
             )}
           </Button>
-        </div>
+        </div> */}
 
-        <div className="relative py-1.5">
+        {/*   <div className="relative py-1.5">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-2 text-muted-foreground">or</span>
           </div>
-        </div>
+        </div> */}
 
         {error && (
           <Alert
