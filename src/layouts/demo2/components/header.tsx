@@ -27,7 +27,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        'flex items-center transition-[height] shrink-0 h-(--header-height) in-data-[sticky-header=on]:pe-[var(--removed-body-scroll-bar-size,0px)]',
+        'dark:bg-[#070b14] flex items-center transition-[height] shrink-0 h-(--header-height) in-data-[sticky-header=on]:pe-[var(--removed-body-scroll-bar-size,0px)]',
         settings.layouts.demo2.headerSticky &&
           headerStickyOn &&
           'transition-[height] fixed z-10 top-0 start-0 end-0 shadow-xs backdrop-blur-md bg-background/70',

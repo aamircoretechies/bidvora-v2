@@ -1256,12 +1256,30 @@ export const MENU_MEGA: MenuConfig = [
 export const MENU_MEGA_MOBILE: MenuConfig = [
   { title: 'Home', path: '/', icon: House },
 
-  {
+ /*  {
     title: 'Chat',
     path: '/chat',
     icon: MessageSquare
+  }, */
+  {
+    title: 'Subscription',
+    icon: Tag,
+    path: '/settings/subscription',
+
+  },
+   {
+    title: 'Bidding Settings',
+    icon: Hammer,
+    path: '/settings/bidding',
+
   },
   {
+    title: 'AI Settings',
+    icon: BotIcon,
+    path: '/settings/ai',
+
+  },
+ /*  {
     title: 'Settings',
     icon: Settings,
     children: [
@@ -1269,7 +1287,7 @@ export const MENU_MEGA_MOBILE: MenuConfig = [
       { title: 'Bidding Settings', path: '/settings/bidding' },
       { title: 'AI Settings', path: '/settings/ai' },
     ],
-  },
+  }, */
 ];
 
 export const MENU_HELP: MenuConfig = [

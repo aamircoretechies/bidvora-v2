@@ -108,7 +108,7 @@ export function MegaMenuMobile() {
         >
           <Link to={item.path || '#'} className="">
             {item.icon && <item.icon data-slot="accordion-menu-icon" />}
-            <div className="flex items-center justify-between grow gap-2">
+            <div className="flex items-center justify-between grow gap-4">
               <span data-slot="accordion-menu-title">{item.title}</span>
               {item.badge && (
                 <Badge variant="secondary" size="sm" className="ms-auto">
@@ -146,7 +146,7 @@ export function MegaMenuMobile() {
           key={index}
           value={item.path || `child-${level}-${index}`}
         >
-          <AccordionMenuSubTrigger className="text-[13px]">
+          <AccordionMenuSubTrigger className="text-[14px]">
             {item.icon && <item.icon data-slot="accordion-menu-icon" />}
             {item.collapse ? (
               <span className="text-muted-foreground">
@@ -186,11 +186,11 @@ export function MegaMenuMobile() {
         <AccordionMenuItem
           key={index}
           value={item.path || ''}
-          className="text-[13px]"
+          className="text-[14px]"
         >
           <Link to={item.path || '#'}>
             {item.icon && <item.icon data-slot="accordion-menu-icon" />}
-            <div className="flex items-center justify-between grow gap-2">
+            <div className="flex items-center justify-between grow gap-4">
               <span>{item.title}</span>
               {item.badge && (
                 <Badge variant="secondary" size="sm" className="ms-auto">

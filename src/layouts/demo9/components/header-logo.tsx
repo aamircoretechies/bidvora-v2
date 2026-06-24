@@ -29,7 +29,7 @@ export function HeaderLogo() {
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
             <Button variant="dim" mode="icon">
-              <Menu size={72} />
+              <Menu size={96}/>
             </Button>
           </SheetTrigger>
           <SheetContent
@@ -44,7 +44,7 @@ export function HeaderLogo() {
           </SheetContent>
         </Sheet>
       )}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 ml-2 lg:ml-0">
         <Link to="/">
           <img
             src={toAbsoluteUrl('/media/app/mini-logo-circle.svg')}
@@ -57,7 +57,7 @@ export function HeaderLogo() {
             alt="logo"
           />
         </Link>
-        <h3 className="text-mono text-lg font-semibold hidden md:block">
+        <h3 className="text-mono text-lg font-semibold md:block">
           Bidvora
         </h3>
       </div>

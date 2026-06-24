@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {generalSettings} from '@/config/general.config';
 import {
   Form,
   FormControl,
@@ -238,7 +239,8 @@ export function SignUpPage() {
                 <FormLabel className="text-sm text-muted-foreground">
                   I agree to the and{' '}
                   <Link
-                    to="#"
+                    to={generalSettings.pp}
+                    target='_blank'
                     className="text-sm font-semibold text-foreground hover:text-primary"
                   >
                     Privacy Policy

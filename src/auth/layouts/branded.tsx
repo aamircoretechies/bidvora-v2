@@ -28,9 +28,9 @@ export function BrandedLayout() {
           }
         `}
       </style>
-      <div className="grid lg:grid-cols-2 grow bg-[#eef0f6] dark:bg-[#16161a]">
+      <div className="grid lg:grid-cols-2 grow bg-[#eef0f6] dark:bg-[#070b14]">
 
-        <div className="lg:rounded-xl lg:border lg:border-border lg:m-5 order-1 lg:order-1 bg-top xxl:bg-center xl:bg-cover bg-no-repeat branded-bg">
+        <div className="lg:rounded-xl lg:border lg:border-border lg:m-5 order-2 lg:order-1 bg-top xxl:bg-center xl:bg-cover bg-no-repeat branded-bg">
           <div className="flex flex-col p-8 lg:p-16 h-full min-h-[600px] relative">
             <Link to="/">
               <img
@@ -83,7 +83,7 @@ export function BrandedLayout() {
           </div>
         </div>
 
-        <div className="flex justify-center items-center p-8 lg:p-10 order-2 lg:order-2">
+        <div className="flex justify-center items-center p-8 lg:p-10 order-1 lg:order-2">
           <Card className="w-full max-w-[400px]">
             <CardContent className="p-6">
               <Outlet />

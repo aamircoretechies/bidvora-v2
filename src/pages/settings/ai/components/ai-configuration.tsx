@@ -96,7 +96,7 @@ const AiConfiguration = () => {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="bg-transparent rounded-t-xl px-5 py-3 flex-row items-center gap-2">
-        <CardTitle className="text-primary-foreground font-semibold text-base">AI Configuration</CardTitle>
+        <CardTitle className="text-foreground text-base font-semibold">AI Configuration</CardTitle>
       </CardHeader>
       <CardContent className="p-5 flex flex-col gap-6 flex-1">
         {/* System Prompt */}
