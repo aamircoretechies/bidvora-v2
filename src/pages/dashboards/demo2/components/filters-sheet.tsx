@@ -70,9 +70,9 @@ export function FiltersSheet({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="Success">Success</SelectItem>
-                    <SelectItem value="Failed">Failed</SelectItem>
-                    <SelectItem value="Action Required">Action Required</SelectItem>
+                    <SelectItem value="success">Success</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="action required">Action Required</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
