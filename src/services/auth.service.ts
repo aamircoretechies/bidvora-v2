@@ -2,9 +2,46 @@ import { api } from '@/lib/api';
 
 // ─── Response shapes (mirror the API contract) ───────────────────────────────
 
+/** Plan tiers supported by the platform */
+export type UserPlan = 'STARTER' | 'PRO';
+
+/** Account roles */
+export type UserRole = 'ADMIN' | 'USER';
+
+/** Account lifecycle statuses */
+export type UserStatus =
+  | 'PENDING_VERIFICATION'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'DEACTIVATED';
+
+/** Razorpay subscription states */
+export type SubscriptionState =
+  | 'NONE'
+  | 'CREATED'
+  | 'AUTHENTICATED'
+  | 'ACTIVE'
+  | 'PENDING'
+  | 'HALTED'
+  | 'CANCELLED'
+  | 'COMPLETED'
+  | 'EXPIRED';
+
+/**
+ * Full user payload returned by GET /auth/me
+ * Keep in sync with the backend schema.
+ */
 export interface MeUserPayload {
   id: number;
   email: string;
+  name: string;
+  role: UserRole;
+  status: UserStatus;
+  plan: UserPlan;
+  selectedPlan: UserPlan;
+  trialEndsAt: string | null;
+  billingPending: boolean;
+  subscriptionState: SubscriptionState;
 }
 
 export interface MeResponse {

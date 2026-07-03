@@ -353,6 +353,45 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
     loadSettings();
   }, []);
 
+  // Listen for the OAuth result — handles both popup (postMessage)
+  // and new-tab (BroadcastChannel) scenarios.
+  useEffect(() => {
+    const OAUTH_CHANNEL = 'bidvora_freelancer_oauth';
+
+    // BroadcastChannel — fired when OAuth completes in a new tab
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(OAUTH_CHANNEL);
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'FREELANCER_OAUTH_SUCCESS') {
+          window.location.reload();
+        }
+        if (event.data?.type === 'FREELANCER_OAUTH_ERROR') {
+          toast.error(event.data?.message || 'Freelancer connection failed. Please try again.');
+        }
+      };
+    } catch {
+      // BroadcastChannel not supported
+    }
+
+    // postMessage — fired when OAuth completes in a real popup
+    const handleOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'FREELANCER_OAUTH_SUCCESS') {
+        window.location.reload();
+      }
+      if (event.data?.type === 'FREELANCER_OAUTH_ERROR') {
+        toast.error(event.data?.message || 'Freelancer connection failed. Please try again.');
+      }
+    };
+    window.addEventListener('message', handleOAuthMessage);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener('message', handleOAuthMessage);
+    };
+  }, []);
+
   const loadSettings = async () => {
     try {
       const response = await settingsService.getSettings();

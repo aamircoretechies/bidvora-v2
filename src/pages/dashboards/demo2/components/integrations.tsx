@@ -29,17 +29,43 @@ const Integrations = ({ isFreelancerConnected = false, onConnected }: { isFreela
   }, [isFreelancerConnected]);
 
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type === 'FREELANCER_CONNECTED') {
-        setConnected(true);
-        if (onConnected) onConnected();
-      }
+    const OAUTH_CHANNEL = 'bidvora_freelancer_oauth';
+
+    const handleSuccess = () => {
+      setConnected(true);
+      setConnecting(false);
+      if (onConnected) onConnected();
+    };
+    const handleError = (msg?: string) => {
+      setConnecting(false);
+      toast.error(msg || 'Freelancer connection failed. Please try again.');
     };
 
+    // BroadcastChannel — new-tab OAuth flow
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(OAUTH_CHANNEL);
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'FREELANCER_OAUTH_SUCCESS') handleSuccess();
+        if (event.data?.type === 'FREELANCER_OAUTH_ERROR') handleError(event.data?.message);
+      };
+    } catch {
+      // BroadcastChannel not supported
+    }
+
+    // postMessage — real popup OAuth flow
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'FREELANCER_OAUTH_SUCCESS') handleSuccess();
+      if (event.data?.type === 'FREELANCER_OAUTH_ERROR') handleError(event.data?.message);
+    };
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [onConnected]);
 
   const handleConnectFreelancer = async () => {
     try {
@@ -47,26 +73,25 @@ const Integrations = ({ isFreelancerConnected = false, onConnected }: { isFreela
       const response = await freelancerService.getFreelancerAuthorizeUrl();
 
       if (response.success && response.data?.url) {
-        // Open popup
         const width = 600;
         const height = 700;
-        const left = window.screen.width / 2 - width / 2;
-        const top = window.screen.height / 2 - height / 2;
+        const left = Math.round(window.screen.width / 2 - width / 2);
+        const top = Math.round(window.screen.height / 2 - height / 2);
 
         const popup = window.open(
           response.data.url,
-          'Connect Freelancer',
-          `width=${width},height=${height},top=${top},left=${left},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+          'freelancer_oauth',
+          `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`,
         );
 
         if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-          // Popup blocked, fallback to redirect
-          window.location.href = response.data.url;
+          // Popup was blocked — inform the user rather than silently redirecting
+          toast.error('Popup was blocked. Please allow popups for this site and try again.');
         }
+        // connecting spinner stays on until the parent receives the postMessage
       }
     } catch (error: any) {
       toast.error(error?.message || 'Failed to get authorization URL');
-    } finally {
       setConnecting(false);
     }
   };

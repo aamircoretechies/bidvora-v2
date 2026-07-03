@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { AuthModel, UserModel } from '@/auth/lib/models';
+import { AuthModel, RegisterMeta, UserModel } from '@/auth/lib/models';
 
 // Create AuthContext with types
 export const AuthContext = createContext<{
@@ -13,10 +13,10 @@ export const AuthContext = createContext<{
   register: (
     email: string,
     password: string,
-    password_confirmation: string,
-    firstName?: string,
-    lastName?: string,
-  ) => Promise<void>;
+    name: string,
+    plan: string,
+    idempotencyKey?: string,
+  ) => Promise<RegisterMeta>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (
     password: string,
@@ -34,7 +34,13 @@ export const AuthContext = createContext<{
   saveAuth: () => {},
   setUser: () => {},
   login: async () => {},
-  register: async () => {},
+  register: async () => ({
+    billingPending: false,
+    checkoutUrl: null,
+    subscriptionId: null,
+    billingSetupFailed: false,
+    message: null,
+  }),
   requestPasswordReset: async () => {},
   resetPassword: async () => {},
   resendVerificationEmail: async () => {},

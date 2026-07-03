@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://freelancer-backend.coretechiestest.org',
+        target: 'https://bidvora.coretechiestest.org',
         changeOrigin: true,
       },
     },

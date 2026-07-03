@@ -2,7 +2,7 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { SupabaseAdapter } from '@/auth/adapters/supabase-adapter';
 import { AuthContext } from '@/auth/context/auth-context';
 import * as authHelper from '@/auth/lib/helpers';
-import { AuthModel, UserModel } from '@/auth/lib/models';
+import { AuthModel, RegisterMeta, UserModel } from '@/auth/lib/models';
 
 // Define the Supabase Auth Provider
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -52,21 +52,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const register = async (
     email: string,
     password: string,
-    password_confirmation: string,
-    firstName?: string,
-    lastName?: string,
-  ) => {
+    name: string,
+    plan: string,
+    idempotencyKey?: string,
+  ): Promise<RegisterMeta> => {
     try {
-      const auth = await SupabaseAdapter.register(
+      const result = await SupabaseAdapter.register(
         email,
         password,
-        password_confirmation,
-        firstName,
-        lastName,
+        name,
+        plan,
+        idempotencyKey,
       );
-      saveAuth(auth);
+      saveAuth({
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+      });
       const user = await getUser();
       setCurrentUser(user || undefined);
+      return result.meta;
     } catch (error) {
       saveAuth(undefined);
       throw error;

@@ -1,4 +1,4 @@
-import { AuthModel, UserModel } from '@/auth/lib/models';
+import { AuthModel, RegisterMeta, UserModel } from '@/auth/lib/models';
 import { authService } from '@/services/auth.service';
 
 const MOCK_USER: UserModel = {
@@ -103,54 +103,80 @@ export const SupabaseAdapter = {
   },
 
   /**
-   * Register a new user
+   * Register a new CLIENT account (credit card required upfront).
+   * POSTs { email, password, name, plan } to POST /auth/register.
+   * The server returns JWT tokens immediately plus billingPending=true and a
+   * checkoutUrl the frontend must open via Razorpay checkout.
    */
   async register(
     email: string,
     password: string,
-    password_confirmation: string,
-    firstName?: string,
-    lastName?: string,
-  ): Promise<AuthModel> {
-    if (password !== password_confirmation) {
-      throw new Error('Passwords do not match');
-    }
-
+    name: string,
+    plan: string,
+    idempotencyKey?: string,
+  ): Promise<AuthModel & { meta: RegisterMeta }> {
     const API_BASE_URL =
       import.meta.env.VITE_API_BASE_URL ||
       'https://freelancer-backend.coretechiestest.org/api/v1';
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (idempotencyKey) {
+        headers['idempotency-key'] = idempotencyKey;
+      }
+
       const res = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers,
+        body: JSON.stringify({ email, password, name, plan }),
       });
 
       const response = await res.json();
 
       if (!res.ok) {
-        if (response?.error?.code === 'VALIDATION_ERROR' && response?.error?.details) {
-          throw new Error(response.error.details.map((d: any) => d.message).join(', '));
+        // 422 Validation errors – surface field-level messages
+        if (
+          (response?.error?.code === 'VALIDATION_ERROR' ||
+            response?.error?.code === 'BAD_REQUEST') &&
+          response?.error?.details
+        ) {
+          throw new Error(
+            response.error.details.map((d: any) => d.message).join(', '),
+          );
         }
         throw new Error(
           response?.error?.message ||
-          response?.message ||
-          `Registration failed (${res.status})`,
+            response?.message ||
+            `Registration failed (${res.status})`,
         );
       }
 
       if (response.success && response.data) {
+        const serverUser = response.data.user;
         const user = {
           ...MOCK_USER,
-          id: response.data.user.id.toString(),
-          email: response.data.user.email,
+          id: serverUser.id.toString(),
+          email: serverUser.email,
+          first_name: serverUser.name ?? '',
+          last_name: '',
+          fullname: serverUser.name ?? '',
         };
         localStorage.setItem('auth_user', JSON.stringify(user));
+
+        const meta: RegisterMeta = {
+          billingPending: response.meta?.billingPending ?? false,
+          checkoutUrl: response.meta?.checkoutUrl ?? null,
+          subscriptionId: response.meta?.subscriptionId ?? null,
+          billingSetupFailed: response.meta?.billingSetupFailed ?? false,
+          message: response.meta?.message ?? null,
+        };
 
         return {
           access_token: response.data.accessToken,
           refresh_token: response.data.refreshToken,
+          meta,
         };
       }
 
@@ -199,7 +225,7 @@ export const SupabaseAdapter = {
       const me = await authService.getMe();
 
       // Merge server identity into the full UserModel shape.
-      // Fields not returned by /auth/me (name, pic, etc.) are preserved
+      // Fields not returned by /auth/me (pic, etc.) are preserved
       // from the cached profile when available.
       const cached = localStorage.getItem('auth_user');
       const cachedUser: Partial<UserModel> = cached
@@ -209,8 +235,24 @@ export const SupabaseAdapter = {
       const user: UserModel = {
         ...MOCK_USER,
         ...cachedUser,
+        // Identity
         id: me.id.toString(),
         email: me.email,
+        name: me.name,
+        first_name: me.name ?? cachedUser.first_name ?? '',
+        last_name: cachedUser.last_name ?? '',
+        fullname: me.name ?? cachedUser.fullname ?? '',
+        // Role & access
+        role: me.role,
+        is_admin: me.role === 'ADMIN',
+        // Account status
+        status: me.status,
+        // Billing & plan
+        plan: me.plan,
+        selectedPlan: me.selectedPlan,
+        trialEndsAt: me.trialEndsAt,
+        billingPending: me.billingPending,
+        subscriptionState: me.subscriptionState,
       };
 
       // Keep the cache fresh

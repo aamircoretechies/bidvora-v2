@@ -10,12 +10,23 @@ export interface AuthModel {
   refresh_token?: string;
 }
 
+// Billing metadata returned by POST /auth/register
+export interface RegisterMeta {
+  billingPending: boolean;
+  checkoutUrl: string | null;
+  subscriptionId: string | null;
+  billingSetupFailed: boolean;
+  message: string | null;
+}
+
 // User model representing the user profile
 export interface UserModel {
   id: any;
   username: string;
   password?: string; // Optional as we don't always retrieve passwords
   email: string;
+  /** Display name from the server (replaces first_name + last_name) */
+  name?: string;
   first_name: string;
   last_name: string;
   fullname?: string; // May be stored directly in metadata
@@ -28,4 +39,22 @@ export interface UserModel {
   pic?: string;
   language?: LanguageCode; // Maintain existing type
   is_admin?: boolean; // Added admin flag
+
+  // ── Server-authoritative fields from GET /auth/me ─────────────────────────
+  role?: 'ADMIN' | 'USER';
+  status?: 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+  plan?: 'STARTER' | 'PRO';
+  selectedPlan?: 'STARTER' | 'PRO';
+  trialEndsAt?: string | null;
+  billingPending?: boolean;
+  subscriptionState?:
+    | 'NONE'
+    | 'CREATED'
+    | 'AUTHENTICATED'
+    | 'ACTIVE'
+    | 'PENDING'
+    | 'HALTED'
+    | 'CANCELLED'
+    | 'COMPLETED'
+    | 'EXPIRED';
 }
