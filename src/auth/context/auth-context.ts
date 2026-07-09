@@ -12,17 +12,22 @@ export const AuthContext = createContext<{
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
+    confirmEmail: string,
     password: string,
     name: string,
     plan: string,
+    country: string,
     idempotencyKey?: string,
   ) => Promise<RegisterMeta>;
+  startCheckout: (idempotencyKey?: string) => Promise<RegisterMeta>;
+  verifyEmail: (token: string) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (
     password: string,
     password_confirmation: string,
   ) => Promise<void>;
-  resendVerificationEmail: (email: string) => Promise<void>;
+  confirmBilling: (subscriptionId: string, idempotencyKey?: string) => Promise<UserModel>;
+  resendVerificationEmail: () => Promise<void>;
   getUser: () => Promise<UserModel | null>;
   updateProfile: (userData: Partial<UserModel>) => Promise<UserModel>;
   logout: () => void;
@@ -41,8 +46,17 @@ export const AuthContext = createContext<{
     billingSetupFailed: false,
     message: null,
   }),
+  startCheckout: async () => ({
+    billingPending: false,
+    checkoutUrl: null,
+    subscriptionId: null,
+    billingSetupFailed: false,
+    message: null,
+  }),
+  verifyEmail: async () => {},
   requestPasswordReset: async () => {},
   resetPassword: async () => {},
+  confirmBilling: async () => ({} as UserModel),
   resendVerificationEmail: async () => {},
   getUser: async () => null,
   updateProfile: async () => ({}) as UserModel,

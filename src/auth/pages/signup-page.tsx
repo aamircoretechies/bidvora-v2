@@ -12,7 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,109 +52,26 @@ const PLAN_META: Record<
   },
 };
 
-// ── Billing-pending screen ────────────────────────────────────────────────────
-function BillingPendingScreen({
-  meta,
-  onRetry,
-}: {
-  meta: RegisterMeta;
-  onRetry: () => void;
-}) {
-  const [redirecting, setRedirecting] = useState(false);
 
-  const handleCheckout = () => {
-    if (meta.checkoutUrl) {
-      setRedirecting(true);
-      window.open(meta.checkoutUrl, '_blank', 'noopener,noreferrer');
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-center text-center gap-6 py-4 w-full">
-      {/* Icon */}
-      <div className="flex items-center justify-center w-20 h-20 rounded-full bg-primary/10">
-        <CreditCard className="w-10 h-10 text-primary" strokeWidth={1.75} />
-      </div>
-
-      {/* Heading */}
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          One last step — set up billing
-        </h1>
-        <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
-          Your account is ready! Complete the Razorpay checkout to activate
-          your trial. Your account is gated until billing is confirmed.
-        </p>
-      </div>
-
-      {/* Warning if billing setup failed */}
-      {meta.billingSetupFailed && (
-        <Alert variant="destructive" appearance="light">
-          <AlertIcon>
-            <AlertCircle />
-          </AlertIcon>
-          <AlertTitle>
-            {meta.message ??
-              'Billing setup encountered an issue. You can retry checkout below.'}
-          </AlertTitle>
-        </Alert>
-      )}
-
-      {/* CTA */}
-      {meta.checkoutUrl ? (
-        <Button
-          size="lg"
-          className="w-full gap-2"
-          onClick={handleCheckout}
-          disabled={redirecting}
-        >
-          {redirecting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Opening checkout…
-            </>
-          ) : (
-            <>
-              <ExternalLink className="h-4 w-4" />
-              Complete Razorpay Checkout
-            </>
-          )}
-        </Button>
-      ) : (
-        <Button asChild size="lg" className="w-full">
-          <Link to="/auth/signin">Continue to Login</Link>
-        </Button>
-      )}
-
-      {/* Subtle helper */}
-      <p className="text-xs text-muted-foreground">
-        Already completed checkout?{' '}
-        <Link
-          to="/auth/signin"
-          className="font-semibold text-foreground hover:text-primary underline underline-offset-2"
-        >
-          Sign in
-        </Link>
-        {' · '}
-        <button
-          type="button"
-          onClick={onRetry}
-          className="font-semibold text-foreground hover:text-primary underline underline-offset-2"
-        >
-          Start over
-        </button>
-      </p>
-    </div>
-  );
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function SignUpPage() {
   const { register } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const paramPlan = searchParams.get('plan')?.toUpperCase() || 'STARTER';
+  const paramCurrency = searchParams.get('currency')?.toUpperCase() || 'INR';
+  const paramCountry = searchParams.get('country')?.toUpperCase() || (paramCurrency === 'USD' ? 'US' : 'IN');
+
+  const [step, setStep] = useState(1);
+  const [currency, setCurrency] = useState(paramCurrency);
+
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicateEmail, setDuplicateEmail] = useState<string | null>(null);
   const [billingMeta, setBillingMeta] = useState<RegisterMeta | null>(null);
 
   const form = useForm<SignupSchemaType>({
@@ -165,7 +82,7 @@ export function SignUpPage() {
       password: '',
       confirmPassword: '',
       name: '',
-      plan: 'STARTER',
+      plan: (paramPlan === 'PRO' ? 'PRO' : 'STARTER') as PlanType,
       terms: false,
     },
   });
@@ -174,11 +91,21 @@ export function SignUpPage() {
     try {
       setIsProcessing(true);
       setError(null);
+      setDuplicateEmail(null);
 
-      const meta = await register(values.email, values.password, values.name, values.plan);
-      setBillingMeta(meta);
+      const planToSubmit = (paramPlan === 'PRO' ? 'PRO' : 'STARTER');
+
+      await register(values.email, values.email, values.password, values.name, planToSubmit, paramCountry);
+      navigate('/auth/check-email');
     } catch (err) {
       console.error('Registration error:', err);
+      if ((err as { status?: number }).status === 409) {
+        const email = values.email.trim();
+        setDuplicateEmail(email);
+        setError('This email is already registered. Sign in to continue with that account.');
+        return;
+      }
+
       setError(
         err instanceof Error
           ? err.message
@@ -189,18 +116,6 @@ export function SignUpPage() {
     }
   }
 
-  /* ── Billing-pending screen ──────────────────────────────────────────────── */
-  if (billingMeta) {
-    return (
-      <BillingPendingScreen
-        meta={billingMeta}
-        onRetry={() => {
-          setBillingMeta(null);
-          form.reset();
-        }}
-      />
-    );
-  }
 
   return (
     <Form {...form}>
@@ -226,6 +141,19 @@ export function SignUpPage() {
             </AlertIcon>
             <AlertTitle>{error}</AlertTitle>
           </Alert>
+        )}
+
+        {duplicateEmail && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button asChild type="button" variant="outline" className="w-full">
+              <Link to={`/auth/signin?email=${encodeURIComponent(duplicateEmail)}`}>
+                Sign in instead
+              </Link>
+            </Button>
+            <Button asChild type="button" variant="ghost" className="w-full">
+              <Link to="/auth/reset-password">Forgot password?</Link>
+            </Button>
+          </div>
         )}
 
         {/* Full name */}
@@ -266,6 +194,9 @@ export function SignUpPage() {
             </FormItem>
           )}
         />
+
+
+
 
         {/* Password */}
         <FormField
@@ -333,46 +264,6 @@ export function SignUpPage() {
           )}
         />
 
-        {/* Plan selector */}
-        <FormField
-          control={form.control}
-          name="plan"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Plan</FormLabel>
-              <div className="grid grid-cols-2 gap-2">
-                {PLAN_OPTIONS.map((plan) => {
-                  const { label, description, Icon } = PLAN_META[plan];
-                  const selected = field.value === plan;
-                  return (
-                    <button
-                      key={plan}
-                      type="button"
-                      id={`plan-${plan.toLowerCase()}`}
-                      onClick={() => field.onChange(plan)}
-                      className={[
-                        'flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        selected
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground',
-                      ].join(' ')}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-xs font-semibold leading-none">
-                        {label}
-                      </span>
-                      <span className="text-[10px] leading-tight text-center opacity-75">
-                        {description}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         {/* Terms */}
         <FormField
           control={form.control}
@@ -402,12 +293,14 @@ export function SignUpPage() {
           )}
         />
 
+
+
         {/* Billing notice */}
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {/*   <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-4">
           <CreditCard className="h-3.5 w-3.5 shrink-0" />
           A card mandate via Razorpay is required to start your trial. You
           won't be charged until your trial ends.
-        </p>
+        </p> */}
 
         <Button
           type="submit"
@@ -421,11 +314,11 @@ export function SignUpPage() {
               Creating account…
             </span>
           ) : (
-            'Create Account & Set Up Billing'
+            'Create Account'
           )}
         </Button>
 
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-center text-sm text-muted-foreground mt-4">
           Already have an account?{' '}
           <Link
             to="/auth/signin"

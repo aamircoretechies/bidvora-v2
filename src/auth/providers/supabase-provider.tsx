@@ -51,17 +51,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const register = async (
     email: string,
+    confirmEmail: string,
     password: string,
     name: string,
     plan: string,
+    country: string,
     idempotencyKey?: string,
   ): Promise<RegisterMeta> => {
     try {
       const result = await SupabaseAdapter.register(
         email,
+        confirmEmail,
         password,
         name,
         plan,
+        country,
         idempotencyKey,
       );
       saveAuth({
@@ -77,6 +81,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const startCheckout = async (idempotencyKey?: string): Promise<RegisterMeta> => {
+    return await SupabaseAdapter.startCheckout(idempotencyKey);
+  };
+
+  const verifyEmail = async (token: string): Promise<void> => {
+    const user = {
+      ...(await SupabaseAdapter.verifyEmail(token)),
+      email_verified: true,
+      emailVerified: true,
+      status: 'TRIAL' as const,
+    };
+    localStorage.setItem('auth_user', JSON.stringify(user));
+    setCurrentUser(user);
+  };
+
+  const confirmBilling = async (subscriptionId: string, idempotencyKey?: string) => {
+    const user = await SupabaseAdapter.confirmBilling(subscriptionId, idempotencyKey);
+    setCurrentUser(user);
+    return user;
+  };
+
   const requestPasswordReset = async (email: string) => {
     await SupabaseAdapter.requestPasswordReset(email);
   };
@@ -88,8 +113,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await SupabaseAdapter.resetPassword(password, password_confirmation);
   };
 
-  const resendVerificationEmail = async (email: string) => {
-    await SupabaseAdapter.resendVerificationEmail(email);
+  const resendVerificationEmail = async () => {
+    await SupabaseAdapter.resendVerificationEmail();
   };
 
   const getUser = async () => {
@@ -117,6 +142,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setUser: setCurrentUser,
         login,
         register,
+        startCheckout,
+        verifyEmail,
+        confirmBilling,
         requestPasswordReset,
         resetPassword,
         resendVerificationEmail,

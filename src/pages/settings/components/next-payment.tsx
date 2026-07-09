@@ -1,10 +1,22 @@
 import { HexagonBadge } from '@/partials/common/hexagon-badge';
 import { CalendarDays, Check } from 'lucide-react';
-import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useSubscription } from '@/hooks/use-subscription';
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(iso));
+}
 
 const NextPayment = () => {
+  const { subscription, loading } = useSubscription();
+
   return (
     <Card className="grow">
       <CardHeader>
@@ -21,9 +33,13 @@ const NextPayment = () => {
                 badge={<CalendarDays className="text-xl text-orange-400" />}
               />
               <div className="flex flex-col">
-                <Link to="#" className="text-sm font-medium hover:text-primary text-mono">
-                  on 17 Aug, 2024
-                </Link>
+                {loading ? (
+                  <Skeleton className="h-4 w-28" />
+                ) : (
+                  <span className="text-sm font-medium text-mono">
+                    on {formatDate(subscription?.currentPeriodEnd ?? null)}
+                  </span>
+                )}
                 <p className="text-sm text-secondary-foreground">Due date</p>
               </div>
             </div>

@@ -31,6 +31,7 @@ export interface UserModel {
   last_name: string;
   fullname?: string; // May be stored directly in metadata
   email_verified?: boolean;
+  emailVerified?: boolean;
   occupation?: string;
   companyName?: string;
   company_name?: string; // Using snake_case consistently
@@ -42,9 +43,10 @@ export interface UserModel {
 
   // ── Server-authoritative fields from GET /auth/me ─────────────────────────
   role?: 'ADMIN' | 'USER';
-  status?: 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
+  status?: 'PENDING_VERIFICATION' | 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
   plan?: 'STARTER' | 'PRO';
   selectedPlan?: 'STARTER' | 'PRO';
+  billingCountry?: string | null;
   trialEndsAt?: string | null;
   billingPending?: boolean;
   subscriptionState?:

@@ -104,14 +104,25 @@ import {
 import { ChatsPage } from '@/pages/chats';
 import { SettingsPage } from '@/pages/settings';
 import { SubscriptionPage } from '@/pages/settings/subscription';
+import { PlansPage } from '@/pages/settings/plans';
 import { BiddingPage } from '@/pages/settings/bidding';
 import { AiPage } from '@/pages/settings/ai';
 import { FreelancerCallbackPage } from '@/pages/freelancer/callback';
-import { Navigate, Route, Routes, useParams } from 'react-router';
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router';
 
 const ResetPasswordRedirect = () => {
   const { token } = useParams<{ token: string }>();
   return <Navigate to={`/auth/reset-password/${token}`} replace />;
+};
+
+const VerifyEmailRedirect = () => {
+  const params = useParams();
+  const token = params.token || params['*'];
+  const location = useLocation();
+  if (!token) {
+    return <Navigate to={`/auth/verify-email${location.search}`} replace />;
+  }
+  return <Navigate to={`/auth/verify-email/${token}${location.search}`} replace />;
 };
 
 export function AppRoutingSetup() {
@@ -123,6 +134,7 @@ export function AppRoutingSetup() {
           <Route path="/chats" element={<ChatsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/subscription" element={<SubscriptionPage />} />
+          <Route path="/settings/plans" element={<PlansPage />} />
           <Route path="/settings/bidding" element={<BiddingPage />} />
           <Route path="/settings/ai" element={<AiPage />} />
           <Route path="/bids/:id" element={<BidDetailPage />} />
@@ -410,6 +422,9 @@ export function AppRoutingSetup() {
         </Route>
       </Route>
       <Route path="reset-password/:token" element={<ResetPasswordRedirect />} />
+      <Route path="verify-email/:token" element={<VerifyEmailRedirect />} />
+      <Route path="verify-email/*" element={<VerifyEmailRedirect />} />
+      <Route path="verify-email" element={<VerifyEmailRedirect />} />
       <Route path="error/*" element={<ErrorRouting />} />
       <Route path="auth/*" element={<AuthRouting />} />
       <Route path="*" element={<Navigate to="/error/404" />} />

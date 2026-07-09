@@ -1,10 +1,11 @@
 'use client';
 
-import { JSX, useCallback } from 'react';
+import { JSX, useCallback, useMemo } from 'react';
 import { LucideIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { MENU_MEGA_MOBILE } from '@/config/menu.config';
 import { cn } from '@/lib/utils';
+import { useDashboard } from '@/hooks/use-dashboard';
 import {
   AccordionMenu,
   AccordionMenuClassNames,
@@ -37,6 +38,7 @@ export type MenuConfig = MenuItem[];
 
 export function MegaMenuMobile() {
   const { pathname } = useLocation();
+  const { data: dashboardData } = useDashboard();
 
   // Memoize matchPath to prevent unnecessary re-renders
   const matchPath = useCallback(
@@ -44,6 +46,18 @@ export function MegaMenuMobile() {
       path === pathname || (path.length > 1 && pathname.startsWith(path)),
     [pathname],
   );
+
+  const filteredMenu = useMemo(() => {
+    return MENU_MEGA_MOBILE.filter((item) => {
+      if (
+        !dashboardData?.isFreelancerConnected &&
+        (item.title === 'Bidding Settings' || item.title === 'AI Settings')
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [dashboardData?.isFreelancerConnected]);
 
   // Global classNames for consistent styling
   const classNames: AccordionMenuClassNames = {
@@ -217,7 +231,7 @@ export function MegaMenuMobile() {
         collapsible
         classNames={classNames}
       >
-        {buildMenu(MENU_MEGA_MOBILE)}
+        {buildMenu(filteredMenu)}
       </AccordionMenu>
     </div>
   );

@@ -158,7 +158,7 @@ function OnboardingSidebar({ step }: { step: 1 | 2 }) {
         </div>
 
         {/* Security note */}
-       {/*  <div className="mt-5 rounded-xl border border-white/20 bg-white/10 p-3 flex gap-2.5">
+        {/*  <div className="mt-5 rounded-xl border border-white/20 bg-white/10 p-3 flex gap-2.5">
           <ShieldCheck className="w-4 h-4 shrink-0 text-white/70 mt-0.5" />
           <div>
             <p className="text-xs font-semibold text-white leading-tight mb-1">Security note</p>
@@ -171,9 +171,7 @@ function OnboardingSidebar({ step }: { step: 1 | 2 }) {
       </div>
 
       {/* Footer */}
-      <div className="mt-6 border-t border-white/20 pt-4 text-[11px] text-white/40 space-y-0.5">
-        <p>© 2024 Bidvora. All rights reserved.</p>
-      </div>
+
     </aside>
   );
 }
@@ -252,7 +250,7 @@ function Step1Form({
         </div>
 
         {/* Env hint box */}
-       {/*  <div className="rounded-xl border border-border bg-muted/50 px-4 py-3 flex gap-3 items-start">
+        {/*  <div className="rounded-xl border border-border bg-muted/50 px-4 py-3 flex gap-3 items-start">
           <FileText className="w-4 h-4 text-primary shrink-0 mt-0.5" />
           <div className="flex flex-col gap-1">
             <code className="text-xs font-mono text-primary">FREELANCER_CLIENT_ID</code>
@@ -318,6 +316,9 @@ function Step2Connect({
       </div>
 
       <div className="max-w-xl mt-4 mb-4">
+        <div className="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-400">
+          <strong>Important:</strong> Please ensure you log into Freelancer using the exact same account that generated the API keys.
+        </div>
         <Integrations isFreelancerConnected={false} onConnected={onComplete} />
       </div>
 
@@ -434,6 +435,8 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         dailyBidLimit: 1,
         maxBidsPerCycle: 1,
         maxExistingBids: 1,
+        openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY,
+        embeddingApiKey: import.meta.env.VITE_OPENAI_API_KEY,
       };
       await settingsService.updateSettings(payload);
       toast.success('API Keys saved successfully');

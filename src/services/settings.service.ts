@@ -1,7 +1,8 @@
 import { api } from '@/lib/api';
 
 export interface AuthConfig {
-  key: string;
+  userId?: number;
+  key?: string;
   clientId: string;
   clientSecret: string;
   accessToken: string;
@@ -11,7 +12,8 @@ export interface AuthConfig {
 }
 
 export interface BotConfig {
-  id: number;
+  id?: number;
+  userId?: number;
   llmModel: string;
   targetSkills: string;
   blacklistKeywords: string;
@@ -29,6 +31,30 @@ export interface BotConfig {
   systemPrompt: string | null;
   portfolioItems: string | null;
   autoReplyDelay: number;
+  bidWebhookUrl?: string;
+  bidSheetId?: string;
+  targetSheetId?: string;
+  googleWebhookUrl?: string;
+  sheetsWebhookSecret?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  defaultPeriodDays?: number;
+  biddingEnabled?: boolean;
+  chatBotEnabled?: boolean;
+}
+
+export interface SecretsConfig {
+  userId?: number;
+  openaiApiKey?: string;
+  geminiApiKey?: string;
+  nvidiaApiKey?: string;
+  embeddingApiKey?: string;
+  googleServiceAccountJson?: string;
+  hasOpenaiApiKey?: boolean;
+  hasGeminiApiKey?: boolean;
+  hasNvidiaApiKey?: boolean;
+  hasEmbeddingApiKey?: boolean;
+  hasGoogleServiceAccountJson?: boolean;
 }
 
 export interface SettingsApiResponse {
@@ -36,13 +62,17 @@ export interface SettingsApiResponse {
   data: {
     authConfig: AuthConfig;
     botConfig: BotConfig;
+    secrets: SecretsConfig;
   };
+  meta?: any;
 }
+
+export type UpdateSettingsPayload = Partial<BotConfig & AuthConfig & SecretsConfig>;
 
 export const settingsService = {
   /**
    * GET /settings
-   * Returns masked auth config and bot config.
+   * Returns masked auth config, bot config, and secrets.
    */
   async getSettings(): Promise<SettingsApiResponse> {
     const response = (await api.get('/settings')) as SettingsApiResponse;
@@ -56,9 +86,9 @@ export const settingsService = {
 
   /**
    * PUT /settings
-   * Updates auth config and bot config.
+   * Updates auth config, bot config, and secrets.
    */
-  async updateSettings(payload: Partial<BotConfig & AuthConfig>): Promise<SettingsApiResponse> {
+  async updateSettings(payload: UpdateSettingsPayload): Promise<SettingsApiResponse> {
     const response = (await api.put('/settings', payload)) as SettingsApiResponse;
 
     if (!response.success) {

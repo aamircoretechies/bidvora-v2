@@ -127,7 +127,7 @@ const Integrations = ({ isFreelancerConnected = false, onConnected }: { isFreela
               {item.title}
             </Link>
             <span className="text-sm font-medium text-secondary-foreground leading-tight">
-              {item.email}
+              {item.connected ? item.email : 'Not connected yet'}
             </span>
           </div>
         </div>

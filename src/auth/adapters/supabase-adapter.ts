@@ -110,9 +110,11 @@ export const SupabaseAdapter = {
    */
   async register(
     email: string,
+    confirmEmail: string,
     password: string,
     name: string,
     plan: string,
+    country: string,
     idempotencyKey?: string,
   ): Promise<AuthModel & { meta: RegisterMeta }> {
     const API_BASE_URL =
@@ -130,7 +132,7 @@ export const SupabaseAdapter = {
       const res = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ email, password, name, plan }),
+        body: JSON.stringify({ email, confirmEmail, password, name, plan, country }),
       });
 
       const response = await res.json();
@@ -146,11 +148,13 @@ export const SupabaseAdapter = {
             response.error.details.map((d: any) => d.message).join(', '),
           );
         }
-        throw new Error(
+        const error = new Error(
           response?.error?.message ||
             response?.message ||
             `Registration failed (${res.status})`,
-        );
+        ) as Error & { status?: number };
+        error.status = res.status;
+        throw error;
       }
 
       if (response.success && response.data) {
@@ -162,6 +166,15 @@ export const SupabaseAdapter = {
           first_name: serverUser.name ?? '',
           last_name: '',
           fullname: serverUser.name ?? '',
+          status: serverUser.status,
+          plan: serverUser.plan ?? plan,
+          selectedPlan: serverUser.selectedPlan ?? plan,
+          trialEndsAt: serverUser.trialEndsAt ?? null,
+          billingPending: serverUser.billingPending,
+          subscriptionState: serverUser.subscriptionState,
+          billingCountry: country,
+          email_verified: serverUser.emailVerified ?? false,
+          emailVerified: serverUser.emailVerified ?? false,
         };
         localStorage.setItem('auth_user', JSON.stringify(user));
 
@@ -188,6 +201,215 @@ export const SupabaseAdapter = {
   },
 
   /**
+   * Start Checkout
+   */
+  async startCheckout(idempotencyKey?: string): Promise<RegisterMeta> {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
+    const authHelper = await import('@/auth/lib/helpers');
+    const auth = authHelper.getAuth();
+    const token = auth?.access_token;
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (idempotencyKey) {
+      headers['idempotency-key'] = idempotencyKey;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/register/start-checkout`, {
+        method: 'POST',
+        headers,
+      });
+
+      const response = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const details = Array.isArray(response?.error?.details)
+          ? response.error.details.map((detail: any) => detail.message).join(', ')
+          : '';
+        const error = new Error(
+          response?.error?.message ||
+          details ||
+          response?.message ||
+          `Checkout start failed (${res.status})`
+        ) as Error & { status?: number; code?: string; details?: unknown };
+        error.status = res.status;
+        error.code = response?.error?.code;
+        error.details = response?.error?.details;
+        throw error;
+      }
+
+      if (response.success && (response.data || response.meta)) {
+        const data = response.data ?? {};
+        const meta = response.meta ?? {};
+        return {
+          billingPending: meta.billingPending ?? true,
+          checkoutUrl: data.checkoutUrl ?? meta.checkoutUrl ?? null,
+          subscriptionId: data.subscriptionId ?? meta.subscriptionId ?? null,
+          billingSetupFailed: meta.billingSetupFailed ?? false,
+          message: meta.message ?? null,
+        };
+      }
+
+      throw new Error('Invalid response from server');
+    } catch (error: any) {
+      console.error('startCheckout error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Verify Email
+   */
+  async verifyEmail(token: string): Promise<UserModel> {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
+    const encodedToken = encodeURIComponent(token.trim());
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/verify-email/${encodedToken}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      const response = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const error = new Error(
+          response?.error?.message ||
+          response?.message ||
+          `Email verification failed (${res.status})`
+        ) as Error & { status?: number; code?: string };
+        error.status = res.status;
+        error.code = response?.error?.code;
+        throw error;
+      }
+
+      if (response?.success && response?.data?.user) {
+        const me = response.data.user;
+        const cached = localStorage.getItem('auth_user');
+        const cachedUser: Partial<UserModel> = cached ? JSON.parse(cached) : {};
+
+        const user: UserModel = {
+          ...MOCK_USER,
+          ...cachedUser,
+          id: me.id.toString(),
+          email: me.email,
+          name: me.name,
+          first_name: me.name ?? cachedUser.first_name ?? '',
+          last_name: cachedUser.last_name ?? '',
+          fullname: me.name ?? cachedUser.fullname ?? '',
+          role: me.role,
+          is_admin: me.role === 'ADMIN',
+          status: me.status,
+          plan: me.plan,
+          selectedPlan: me.selectedPlan,
+          trialEndsAt: me.trialEndsAt,
+          billingPending: me.billingPending,
+          subscriptionState: me.subscriptionState,
+          email_verified: me.emailVerified,
+          emailVerified: me.emailVerified,
+          billingCountry: me.billingCountry ?? cachedUser.billingCountry ?? null,
+        };
+
+        localStorage.setItem('auth_user', JSON.stringify(user));
+        return user;
+      }
+      throw new Error('Invalid response from server');
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        throw new Error('Email verification timed out. Please check your connection and try the link again.');
+      }
+      console.error('verifyEmail error:', error);
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  },
+
+  /**
+   * Confirm Razorpay trial checkout and clear billingPending
+   */
+  async confirmBilling(subscriptionId: string, idempotencyKey?: string): Promise<UserModel> {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
+    const authHelper = await import('@/auth/lib/helpers');
+    const auth = authHelper.getAuth();
+    const token = auth?.access_token;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (idempotencyKey) {
+      headers['idempotency-key'] = idempotencyKey;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/register/confirm-billing`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ subscriptionId }),
+      });
+
+      const response = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          response?.error?.message ||
+          response?.message ||
+          `Billing confirmation failed (${res.status})`
+        );
+      }
+
+      if (response.success && response.data) {
+        const me = response.data.user;
+        const cached = localStorage.getItem('auth_user');
+        const cachedUser: Partial<UserModel> = cached ? JSON.parse(cached) : {};
+
+        const user: UserModel = {
+          ...MOCK_USER,
+          ...cachedUser,
+          id: me.id.toString(),
+          email: me.email,
+          name: me.name,
+          first_name: me.name ?? cachedUser.first_name ?? '',
+          last_name: cachedUser.last_name ?? '',
+          fullname: me.name ?? cachedUser.fullname ?? '',
+          role: me.role,
+          is_admin: me.role === 'ADMIN',
+          status: me.status,
+          plan: me.plan,
+          selectedPlan: me.selectedPlan,
+          trialEndsAt: me.trialEndsAt,
+          billingPending: me.billingPending,
+          subscriptionState: me.subscriptionState,
+          email_verified: me.emailVerified ?? cachedUser.email_verified ?? true,
+          emailVerified: me.emailVerified ?? cachedUser.emailVerified ?? true,
+          billingCountry: me.billingCountry ?? cachedUser.billingCountry ?? null,
+        };
+
+        localStorage.setItem('auth_user', JSON.stringify(user));
+        return user;
+      }
+
+      throw new Error('Invalid response from server');
+    } catch (error: any) {
+      console.error('confirmBilling error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Request password reset
    */
   async requestPasswordReset(email: string): Promise<void> {
@@ -209,8 +431,35 @@ export const SupabaseAdapter = {
   /**
    * Request another verification email
    */
-  async resendVerificationEmail(email: string): Promise<void> {
-    console.log('Mock SupabaseAdapter: Resend verification email:', email);
+  async resendVerificationEmail(): Promise<void> {
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
+    const authHelper = await import('@/auth/lib/helpers');
+    const auth = authHelper.getAuth();
+    const token = auth?.access_token;
+
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/verify-email/resend`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!res.ok) {
+        const response = await res.json().catch(() => null);
+        throw new Error(
+          response?.error?.message ||
+          response?.message ||
+          `Failed to resend verification email (${res.status})`
+        );
+      }
+    } catch (error: any) {
+      console.error('resendVerificationEmail error:', error);
+      throw error;
+    }
   },
 
   /**
@@ -253,6 +502,9 @@ export const SupabaseAdapter = {
         trialEndsAt: me.trialEndsAt,
         billingPending: me.billingPending,
         subscriptionState: me.subscriptionState,
+        email_verified: me.emailVerified,
+        emailVerified: me.emailVerified,
+        billingCountry: me.billingCountry ?? cachedUser.billingCountry ?? null,
       };
 
       // Keep the cache fresh

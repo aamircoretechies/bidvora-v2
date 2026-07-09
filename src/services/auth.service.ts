@@ -11,6 +11,7 @@ export type UserRole = 'ADMIN' | 'USER';
 /** Account lifecycle statuses */
 export type UserStatus =
   | 'PENDING_VERIFICATION'
+  | 'TRIAL'
   | 'ACTIVE'
   | 'SUSPENDED'
   | 'DEACTIVATED';
@@ -41,6 +42,8 @@ export interface MeUserPayload {
   selectedPlan: UserPlan;
   trialEndsAt: string | null;
   billingPending: boolean;
+  billingCountry?: string | null;
+  emailVerified?: boolean;
   subscriptionState: SubscriptionState;
 }
 

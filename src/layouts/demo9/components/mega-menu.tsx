@@ -8,6 +8,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { MENU_MEGA } from '@/config/menu.config';
 import { cn } from '@/lib/utils';
 import { useMenu } from '@/hooks/use-menu';
+import { useDashboard } from '@/hooks/use-dashboard';
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -16,11 +17,12 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from '@/components/ui/navigation-menu';
-import { Home, MessageCircle, CreditCard, DollarSign, Bot } from 'lucide-react';
+import { Home, MessageCircle, CreditCard, DollarSign, Bot, Crown } from 'lucide-react';
 
 export function MegaMenu() {
   const { pathname } = useLocation();
   const { isActive, hasActiveChild } = useMenu(pathname);
+  const { data: dashboardData } = useDashboard();
   const homeItem = MENU_MEGA[0];
   const publicProfilesItem = MENU_MEGA[1];
   const myAccountItem = MENU_MEGA[2];
@@ -29,6 +31,7 @@ export function MegaMenu() {
   const storeItem = MENU_MEGA[5];
   const chatsItem = MENU_MEGA[6];
   const subscriptionItem = MENU_MEGA[7];
+  const planItem = MENU_MEGA[10];
   const biddingItem = MENU_MEGA[8];
   const aiItem = MENU_MEGA[9];
   const settingsItem = MENU_MEGA[10];
@@ -150,36 +153,53 @@ export function MegaMenu() {
               className={cn(linkClass)}
               data-active={isActive(subscriptionItem.path) || undefined}
             >
-              <CreditCard className="w-5 h-5 me-1" />
+              <Crown className="w-5 h-5 me-1" />
               {subscriptionItem.title}
             </Link>
           </NavigationMenuLink>
         </NavigationMenuItem>
 
         {/* Bidding Item */}
-        <NavigationMenuItem>
-          <NavigationMenuLink asChild>
-            <Link
-              to={biddingItem.path || '/'}
-              className={cn(linkClass)}
-              data-active={isActive(biddingItem.path) || undefined}
-            >
-              <DollarSign className="w-5 h-5 me-1" />
-              {biddingItem.title}
-            </Link>
-          </NavigationMenuLink>
-        </NavigationMenuItem>
+        {dashboardData?.isFreelancerConnected && (
+          <NavigationMenuItem>
+            <NavigationMenuLink asChild>
+              <Link
+                to={biddingItem.path || '/'}
+                className={cn(linkClass)}
+                data-active={isActive(biddingItem.path) || undefined}
+              >
+                <DollarSign className="w-5 h-5 me-1" />
+                {biddingItem.title}
+              </Link>
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+        )}
 
         {/* AI Item */}
+        {dashboardData?.isFreelancerConnected && (
+          <NavigationMenuItem>
+            <NavigationMenuLink asChild>
+              <Link
+                to={aiItem.path || '/'}
+                className={cn(linkClass)}
+                data-active={isActive(aiItem.path) || undefined}
+              >
+                <Bot className="w-5 h-5 me-1" />
+                {aiItem.title}
+              </Link>
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+        )}
+
         <NavigationMenuItem>
           <NavigationMenuLink asChild>
             <Link
-              to={aiItem.path || '/'}
+              to={planItem.path || '/'}
               className={cn(linkClass)}
-              data-active={isActive(aiItem.path) || undefined}
+              data-active={isActive(planItem.path) || undefined}
             >
-              <Bot className="w-5 h-5 me-1" />
-              {aiItem.title}
+              <CreditCard className="w-5 h-5 me-1" />
+              {planItem.title}
             </Link>
           </NavigationMenuLink>
         </NavigationMenuItem>

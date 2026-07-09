@@ -10,6 +10,9 @@ import { TwoFactorAuth } from './pages/extended/tfa';
 import { ResetPasswordPage } from './pages/reset-password-page';
 import { SignInPage } from './pages/signin-page';
 import { SignUpPage } from './pages/signup-page';
+import { VerifyEmailPage } from './pages/verify-email-page';
+import { CheckoutReviewPage } from './pages/checkout-review-page';
+import { BillingPendingPage } from './pages/billing-pending-page';
 
 // Define the auth routes
 export const authRoutes: RouteObject[] = [
@@ -24,6 +27,30 @@ export const authRoutes: RouteObject[] = [
       {
         path: 'signup',
         element: <SignUpPage />,
+      },
+      {
+        path: 'verify-email/:token',
+        element: <VerifyEmailPage />,
+      },
+      {
+        path: 'verify-email/*',
+        element: <VerifyEmailPage />,
+      },
+      {
+        path: 'verify-email',
+        element: <VerifyEmailPage />,
+      },
+      {
+        path: 'checkout-review',
+        element: <CheckoutReviewPage />,
+      },
+      {
+        path: 'billing-pending',
+        element: <BillingPendingPage />,
+      },
+      {
+        path: 'register/billing/callback',
+        element: <BillingPendingPage />,
       },
       {
         path: 'change-password',
@@ -67,6 +94,30 @@ export const authRoutes: RouteObject[] = [
       {
         path: 'classic/signup',
         element: <SignUpPage />,
+      },
+      {
+        path: 'classic/verify-email/:token',
+        element: <VerifyEmailPage />,
+      },
+      {
+        path: 'classic/verify-email/*',
+        element: <VerifyEmailPage />,
+      },
+      {
+        path: 'classic/verify-email',
+        element: <VerifyEmailPage />,
+      },
+      {
+        path: 'classic/checkout-review',
+        element: <CheckoutReviewPage />,
+      },
+      {
+        path: 'classic/billing-pending',
+        element: <BillingPendingPage />,
+      },
+      {
+        path: 'classic/register/billing/callback',
+        element: <BillingPendingPage />,
       },
       {
         path: 'classic/change-password',

@@ -339,6 +339,12 @@ export const MENU_SIDEBAR: MenuConfig = [
 
   },
   {
+    title: 'Plans',
+    icon: ScrollText,
+    path: '/settings/plans',
+
+  },
+  {
     title: 'Bidding Settings',
     icon: Hammer,
     path: '/settings/bidding',
@@ -1239,6 +1245,7 @@ export const MENU_MEGA: MenuConfig = [
     path: '/settings/subscription',
 
   },
+  
   {
     title: 'Bidding Settings',
     icon: Hammer,
@@ -1249,6 +1256,12 @@ export const MENU_MEGA: MenuConfig = [
     title: 'AI Settings',
     icon: BotIcon,
     path: '/settings/ai',
+
+  },
+  {
+    title: 'Plans',
+    icon: ScrollText,
+    path: '/settings/plans',
 
   },
 ];
@@ -1267,6 +1280,7 @@ export const MENU_MEGA_MOBILE: MenuConfig = [
     path: '/settings/subscription',
 
   },
+ 
    {
     title: 'Bidding Settings',
     icon: Hammer,
@@ -1277,6 +1291,12 @@ export const MENU_MEGA_MOBILE: MenuConfig = [
     title: 'AI Settings',
     icon: BotIcon,
     path: '/settings/ai',
+
+  },
+   {
+    title: 'Plans',
+    icon: ScrollText,
+    path: '/settings/plans',
 
   },
  /*  {

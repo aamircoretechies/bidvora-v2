@@ -6,8 +6,29 @@ import { toAbsoluteUrl } from '@/lib/helpers';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useSubscription } from '@/hooks/use-subscription';
+import { useAuth } from '@/auth/context/auth-context';
+
+/** Returns the number of days remaining until `iso`, or null */
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null;
+  const diff = new Date(iso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
 
 const Upgrade = () => {
+  const { user } = useAuth();
+  const { subscription } = useSubscription();
+
+  // Determine if we're still in a trial period
+  const isTrial = user?.status === 'TRIAL' || user?.status === 'PENDING_VERIFICATION';
+  const trialDays = daysUntil(user?.trialEndsAt ?? null);
+
+  // Show the upgrade banner only for non-PRO or trial plans
+  const planLabel = (subscription?.plan ?? user?.plan ?? 'STARTER')
+    .charAt(0)
+    .toUpperCase() + (subscription?.plan ?? user?.plan ?? 'STARTER').slice(1).toLowerCase();
+
   return (
     <Fragment>
       <style>
@@ -31,32 +52,42 @@ const Upgrade = () => {
               badge={<ScrollText className="text-xl text-blue-400" />}
             />
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <Link
                   to="#"
                   className="text-base font-medium text-mono hover:text-primary-active"
                 >
-                  Upgrade your Components.io to Enterprise
+                  Upgrade your plan to{' '}
+                  {planLabel === 'Starter' ? 'Pro' : 'Enterprise'}
                 </Link>
-                <Badge variant="destructive" appearance="light">
-                  Trial expires in 29 days
-                </Badge>
+                {isTrial && trialDays !== null && (
+                  <Badge variant="destructive" appearance="light">
+                    Trial expires in {trialDays} day{trialDays !== 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {subscription?.subscriptionState === 'PAST_DUE' && (
+                  <Badge variant="warning" appearance="light">
+                    Payment overdue
+                  </Badge>
+                )}
               </div>
               <div className="text-sm text-secondary-foreground">
-                Enterprise Components.io is a website offering high-quality,
-                advanced UI components designed for developers, enhancing
-                efficiency and aesthetics in web and mobile app development.
+                {planLabel === 'Starter'
+                  ? 'Upgrade to Pro for advanced automation, more bids, and priority support.'
+                  : 'Upgrade to Enterprise for unlimited access and dedicated account management.'}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Button variant="ghost">
-              <Link to="#">Cancel Trial</Link>
-            </Button>
+          {/*  <div className="flex items-center gap-1.5 shrink-0">
+            {isTrial && (
+              <Button variant="ghost">
+                <Link to="#">Cancel Trial</Link>
+              </Button>
+            )}
             <Button variant="mono">
               <Link to="#">Upgrade Now</Link>
             </Button>
-          </div>
+          </div> */}
         </div>
       </Card>
     </Fragment>

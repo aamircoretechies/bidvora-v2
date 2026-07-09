@@ -1,7 +1,27 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toAbsoluteUrl } from '@/lib/helpers';
+import { useAuth } from '@/auth/context/auth-context';
+import { Loader2 } from 'lucide-react';
 
 const CheckEmail = () => {
+  const { user, resendVerificationEmail } = useAuth();
+  const [isResending, setIsResending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleResend = async () => {
+    try {
+      setIsResending(true);
+      setMessage(null);
+      await resendVerificationEmail();
+      setMessage('Verification email sent.');
+    } catch (error: any) {
+      setMessage(error.message || 'Failed to resend email.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <>
       <div className="flex justify-center py-10">
@@ -22,12 +42,9 @@ const CheckEmail = () => {
       </h3>
       <div className="text-sm text-center text-secondary-foreground mb-7.5">
         Please click the link sent to your email&nbsp;
-        <a
-          href="#"
-          className="text-sm text-mono font-medium hover:text-primary-active"
-        >
-          bob@kt.com
-        </a>
+        <span className="text-sm text-mono font-medium">
+          {user?.email || 'your email'}
+        </span>
         <br />
         to verify your account. Thank you
       </div>
@@ -38,16 +55,23 @@ const CheckEmail = () => {
         </Link>
       </div>
 
-      <div className="flex items-center justify-center gap-1">
-        <span className="text-sm text-secondary-foreground">
-          Didn’t receive an email?
-        </span>
-        <Link
-          to="/auth/signin"
-          className="text-sm font-semibold text-foreground hover:text-primary"
-        >
-          Resend
-        </Link>
+      <div className="flex flex-col items-center justify-center gap-2">
+        <div className="flex items-center gap-1">
+          <span className="text-sm text-secondary-foreground">
+            Didn’t receive an email?
+          </span>
+          <button
+            onClick={handleResend}
+            disabled={isResending}
+            className="text-sm font-semibold text-foreground hover:text-primary disabled:opacity-50 flex items-center gap-1"
+          >
+            {isResending && <Loader2 className="h-3 w-3 animate-spin" />}
+            Resend
+          </button>
+        </div>
+        {message && (
+          <span className="text-xs text-muted-foreground">{message}</span>
+        )}
       </div>
     </>
   );
