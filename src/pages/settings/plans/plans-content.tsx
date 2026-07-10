@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/context/auth-context';
 import { usePlans } from '@/hooks/use-plans';
 import { BillingPlan } from '@/services/billing.service';
 import { cn } from '@/lib/utils';
-import { AlertCircle, Check, CreditCard, Loader2, Rocket, Sparkles } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Rocket, Sparkles } from 'lucide-react';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,12 +27,23 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 
 const COUNTRIES = [
-  { value: 'IN', label: 'India' },
-  { value: 'US', label: 'United States' },
-  { value: 'GB', label: 'United Kingdom' },
-  { value: 'CA', label: 'Canada' },
-  { value: 'AU', label: 'Australia' },
-];
+  {
+    value: 'IN',
+    label: 'India',
+    currency: 'INR',
+    provider: 'Razorpay',
+    logo: '/media/brand-logos/Razorpay-full.svg',
+  },
+  {
+    value: 'US',
+    label: 'United States',
+    currency: 'USD',
+    provider: 'PayPal',
+    logo: '/media/brand-logos/PayPal-full.svg',
+  },
+] as const;
+
+type BillingCountryOption = (typeof COUNTRIES)[number]['value'];
 
 const PLAN_COPY = {
   STARTER: {
@@ -65,6 +76,10 @@ const PLAN_COPY = {
 
 function intervalLabel(interval: BillingPlan['interval']) {
   return interval === 'month' ? '/mo' : '/yr';
+}
+
+function toBillingCountryOption(country?: string | null): BillingCountryOption {
+  return country?.toUpperCase() === 'IN' ? 'IN' : 'US';
 }
 
 function PlanCard({
@@ -148,10 +163,11 @@ function PlanCard({
 
 export function PlansContent() {
   const { user } = useAuth();
-  const [country, setCountry] = useState(
-    user?.billingCountry?.toUpperCase() || 'IN',
+  const [country, setCountry] = useState<BillingCountryOption>(
+    toBillingCountryOption(user?.billingCountry),
   );
   const { plans, loading, error, refetch } = usePlans(country);
+  const selectedCountry = COUNTRIES.find((item) => item.value === country) ?? COUNTRIES[0];
 
   const currentPlan = user?.plan || user?.selectedPlan;
   const sortedPlans = useMemo(
@@ -173,14 +189,17 @@ export function PlansContent() {
             </CardDescription>
           </CardHeading>
           <CardToolbar className="w-full sm:w-auto">
-            <Select value={country} onValueChange={setCountry}>
+            <Select
+              value={country}
+              onValueChange={(value) => setCountry(toBillingCountryOption(value))}
+            >
               <SelectTrigger size="lg" className="w-full sm:w-56">
                 <SelectValue placeholder="Billing country" />
               </SelectTrigger>
               <SelectContent>
                 {COUNTRIES.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
-                    {item.label}
+                    {item.label} - {item.provider}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -190,16 +209,21 @@ export function PlansContent() {
         <CardContent>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <CreditCard className="size-5" />
+              <div className="flex h-10 w-24 items-center justify-center rounded-lg border bg-background px-3">
+                <img
+                  src={selectedCountry.logo}
+                  alt={`${selectedCountry.provider} logo`}
+                  className="max-h-5 w-full object-contain"
+                />
               </div>
               <div>
                 <div className="text-sm font-medium text-mono">
                   {plans
-                    ? `${plans.billingProvider} handles ${plans.currency.toUpperCase()} billing`
+                    ? `${selectedCountry.provider} handles ${plans.currency.toUpperCase()} billing`
                     : 'Loading billing provider'}
                 </div>
                 <div className="text-sm text-muted-foreground">
+                  {selectedCountry.label} ({selectedCountry.value}) pricing.
                   Plan changes apply at {plans?.planChangePolicy?.replace('_', ' ') || 'cycle end'}.
                 </div>
               </div>

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/context/auth-context';
+import { usePlans } from '@/hooks/use-plans';
 import { Button } from '@/components/ui/button';
-import { Loader2, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 
 const CHECKOUT_SUBSCRIPTION_KEY = 'register_checkout_subscription_id';
@@ -38,12 +39,58 @@ function formatTrialLength(trialEndsAt?: string | null) {
   return `${days} day${days === 1 ? '' : 's'}`;
 }
 
+type PaymentCurrency = 'INR' | 'USD';
+
+const paymentOptions: Array<{
+  currency: PaymentCurrency;
+  provider: 'Razorpay' | 'PayPal';
+  logo: string;
+}> = [
+  {
+    currency: 'INR',
+    provider: 'Razorpay',
+    logo: '/media/brand-logos/Razorpay-full.svg',
+  },
+  {
+    currency: 'USD',
+    provider: 'PayPal',
+    logo: '/media/brand-logos/PayPal-full.svg',
+  },
+];
+
+function getCurrencyFromCountry(country?: string | null): PaymentCurrency {
+  return country?.toUpperCase() === 'IN' ? 'INR' : 'USD';
+}
+
+function getCountryFromCurrency(currency: PaymentCurrency) {
+  return currency === 'INR' ? 'IN' : 'US';
+}
+
+function formatZeroPrice(currency: PaymentCurrency) {
+  return new Intl.NumberFormat(currency === 'INR' ? 'en-IN' : 'en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+  }).format(0);
+}
+
 export function CheckoutReviewPage() {
-  const { auth, user, startCheckout, getUser } = useAuth();
+  const { auth, user, startCheckout, getUser, updateRegisterPreferences } = useAuth();
   const navigate = useNavigate();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCurrency, setSelectedCurrency] = useState<PaymentCurrency>('INR');
+  const selectedBillingCountry = getCountryFromCurrency(selectedCurrency);
+  const {
+    plans,
+    loading: plansLoading,
+    error: plansError,
+  } = usePlans(selectedBillingCountry);
+
+  useEffect(() => {
+    setSelectedCurrency(getCurrencyFromCountry(user?.billingCountry));
+  }, [user?.billingCountry]);
 
   const handleStartCheckout = async () => {
     try {
@@ -135,9 +182,27 @@ export function CheckoutReviewPage() {
     );
   }
 
-  const billingCountry = user.billingCountry?.toUpperCase() || 'IN';
   const selectedPlan = user.selectedPlan || user.plan || 'STARTER';
-  const paymentProvider = billingCountry === 'IN' ? 'Razorpay' : 'PayPal';
+  const selectedPayment = paymentOptions.find(
+    (option) => option.currency === selectedCurrency,
+  ) ?? paymentOptions[0];
+  const selectedPlanPrice = plans?.plans.find((plan) => plan.plan === selectedPlan);
+  const isTrial =
+    user.status === 'TRIAL' || user.status === 'PENDING_VERIFICATION';
+  const pricingDisplay = isTrial
+    ? formatZeroPrice(selectedCurrency)
+    : selectedPlanPrice?.displayAmount;
+  const handlePaymentCurrencyChange = (currency: PaymentCurrency) => {
+    if (currency === selectedCurrency) return;
+
+    setSelectedCurrency(currency);
+    updateRegisterPreferences({
+      country: getCountryFromCurrency(currency),
+      plan: selectedPlan as 'STARTER' | 'PRO',
+    }).catch((preferencesError) => {
+      console.warn('Failed to update checkout preferences', preferencesError);
+    });
+  };
 
   return (
     <div className="flex flex-col items-center text-center gap-6 py-4 w-full max-w-md mx-auto">
@@ -166,24 +231,74 @@ export function CheckoutReviewPage() {
 
       <div className="w-full bg-muted/50 rounded-lg p-4 border text-left space-y-4">
         <div className="grid grid-cols-3 gap-2 text-sm">
-          <div className="text-muted-foreground">Email</div>
-          <div className="col-span-2 font-medium break-all">{user.email}</div>
-          
           <div className="text-muted-foreground">Plan</div>
           <div className="col-span-2 font-medium">{selectedPlan}</div>
-          
-          <div className="text-muted-foreground">Country</div>
-          <div className="col-span-2 font-medium">{billingCountry}</div>
-
-          <div className="text-muted-foreground">Payment</div>
-          <div className="col-span-2 font-medium flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-            {paymentProvider}
-          </div>
 
           <div className="text-muted-foreground">Trial</div>
           <div className="col-span-2 font-medium">
             {formatTrialLength(user.trialEndsAt)}
+          </div>
+
+          <div className="text-muted-foreground">Pricing</div>
+          <div className="col-span-2">
+            {plansLoading ? (
+              <span className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Loading pricing
+              </span>
+            ) : plansError ? (
+              <span className="text-sm font-medium text-destructive">
+                Pricing unavailable
+              </span>
+            ) : (
+              <span className="text-xl font-bold text-mono">
+                {pricingDisplay ?? formatZeroPrice(selectedCurrency)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Pay In</div>
+          <div className="grid grid-cols-2 gap-3">
+            {paymentOptions.map((option) => {
+              const isSelected = selectedCurrency === option.currency;
+
+              return (
+                <label
+                  key={option.currency}
+                  className={[
+                    'relative flex cursor-pointer items-center justify-between rounded-md border px-4 py-3 text-sm font-semibold transition-colors',
+                    isSelected
+                      ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                      : 'border-input bg-background text-foreground hover:border-primary/60 hover:bg-primary/5',
+                  ].join(' ')}
+                >
+                  <input
+                    type="radio"
+                    name="paymentCurrency"
+                    value={option.currency}
+                    checked={isSelected}
+                    onChange={() => handlePaymentCurrencyChange(option.currency)}
+                    className="sr-only"
+                  />
+                  <span>{option.currency}</span>
+                  <span
+                    className={[
+                      'flex size-4 items-center justify-center rounded-full border',
+                      isSelected
+                        ? 'border-primary bg-primary'
+                        : 'border-muted-foreground/40',
+                    ].join(' ')}
+                    aria-hidden="true"
+                  >
+                    {isSelected && (
+                      <span className="size-1.5 rounded-full bg-primary-foreground" />
+                    )}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -203,6 +318,15 @@ export function CheckoutReviewPage() {
           'Continue to payment'
         )}
       </Button>
+
+      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+        <span>Powered by</span>
+        <img
+          src={selectedPayment.logo}
+          alt={`${selectedPayment.provider} logo`}
+          className="h-5 max-w-28 object-contain"
+        />
+      </div>
     </div>
   );
 }

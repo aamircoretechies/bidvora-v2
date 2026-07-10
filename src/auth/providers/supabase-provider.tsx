@@ -102,6 +102,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return user;
   };
 
+  const updateRegisterPreferences = async (payload: {
+    country?: string;
+    plan?: 'STARTER' | 'PRO';
+  }) => {
+    const user = await SupabaseAdapter.updateRegisterPreferences(payload);
+    setCurrentUser(user);
+    return user;
+  };
+
   const requestPasswordReset = async (email: string) => {
     await SupabaseAdapter.requestPasswordReset(email);
   };
@@ -125,8 +134,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return await SupabaseAdapter.updateUserProfile(userData);
   };
 
-  const logout = () => {
-    SupabaseAdapter.logout();
+  const logout = async () => {
+    await SupabaseAdapter.logout();
     saveAuth(undefined);
     setCurrentUser(undefined);
   };
@@ -145,6 +154,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         startCheckout,
         verifyEmail,
         confirmBilling,
+        updateRegisterPreferences,
         requestPasswordReset,
         resetPassword,
         resendVerificationEmail,

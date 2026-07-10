@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 
 export type BillingProvider = 'RAZORPAY' | 'PAYPAL';
 export type BillingPlanChangePolicy = 'cycle_end' | 'immediate';
+export type BillingCurrency = 'inr' | 'usd';
 
 export type SubscriptionStatus = 'ACTIVE' | 'TRIAL' | 'SUSPENDED' | 'CANCELLED' | 'NONE';
 export type SubscriptionStateValue =
@@ -43,14 +44,14 @@ export interface SubscriptionResponse {
 export interface BillingPlan {
   plan: 'STARTER' | 'PRO';
   amountCents: number;
-  currency: string;
+  currency: BillingCurrency;
   interval: 'month' | 'year';
   displayAmount: string;
 }
 
 export interface BillingPlansData {
   country: string;
-  currency: string;
+  currency: BillingCurrency;
   billingProvider: BillingProvider;
   planChangePolicy: BillingPlanChangePolicy;
   plans: BillingPlan[];
@@ -59,6 +60,18 @@ export interface BillingPlansData {
 export interface BillingPlansResponse {
   success: true;
   data: BillingPlansData;
+}
+
+export interface BillingErrorResponse {
+  success: false;
+  error: {
+    code: 'VALIDATION_ERROR' | 'BAD_REQUEST' | string;
+    message: string;
+    details?: Array<{
+      field: string;
+      message: string;
+    }>;
+  };
 }
 
 // ─── Billing Service ──────────────────────────────────────────────────────────
@@ -86,9 +99,16 @@ export const billingService = {
     const normalizedCountry = country.trim().toUpperCase();
     const response = (await api.get(
       `/billing/plans?country=${encodeURIComponent(normalizedCountry)}`,
-    )) as BillingPlansResponse;
+    )) as BillingPlansResponse | BillingErrorResponse;
 
-    if (!response.success || !response.data?.plans) {
+    if (!response.success) {
+      const details = response.error.details
+        ?.map((detail) => detail.message)
+        .join(', ');
+      throw new Error(details || response.error.message || 'Failed to fetch billing plans');
+    }
+
+    if (!response.data?.plans) {
       throw new Error('Failed to fetch billing plans');
     }
 

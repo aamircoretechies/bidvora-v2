@@ -1,5 +1,5 @@
 import { AuthModel, RegisterMeta, UserModel } from '@/auth/lib/models';
-import { authService } from '@/services/auth.service';
+import { authService, MeUserPayload } from '@/services/auth.service';
 
 const MOCK_USER: UserModel = {
   id: 'mock-user-123',
@@ -23,6 +23,34 @@ const MOCK_AUTH: AuthModel = {
   access_token: 'mock-access-token',
   refresh_token: 'mock-refresh-token',
 };
+
+const toUserModel = (
+  me: MeUserPayload,
+  cachedUser: Partial<UserModel> = {},
+  fallbackBillingCountry: string | null = null,
+): UserModel => ({
+  ...MOCK_USER,
+  ...cachedUser,
+  id: me.id.toString(),
+  email: me.email,
+  name: me.name,
+  first_name: me.name ?? cachedUser.first_name ?? '',
+  last_name: cachedUser.last_name ?? '',
+  fullname: me.name ?? cachedUser.fullname ?? '',
+  role: me.role,
+  is_admin: me.role === 'ADMIN',
+  status: me.status,
+  plan: me.plan,
+  selectedPlan: me.selectedPlan,
+  trialEndsAt: me.trialEndsAt,
+  billingPending: me.billingPending,
+  subscriptionState: me.subscriptionState,
+  email_verified: me.emailVerified,
+  emailVerified: me.emailVerified,
+  billingCountry: me.billingCountry ?? cachedUser.billingCountry ?? fallbackBillingCountry,
+  billingProvider: me.billingProvider ?? cachedUser.billingProvider ?? null,
+  billingCurrency: me.billingCurrency ?? cachedUser.billingCurrency ?? null,
+});
 
 /**
  * Supabase adapter that maintains the same interface as the existing auth flow
@@ -158,24 +186,7 @@ export const SupabaseAdapter = {
       }
 
       if (response.success && response.data) {
-        const serverUser = response.data.user;
-        const user = {
-          ...MOCK_USER,
-          id: serverUser.id.toString(),
-          email: serverUser.email,
-          first_name: serverUser.name ?? '',
-          last_name: '',
-          fullname: serverUser.name ?? '',
-          status: serverUser.status,
-          plan: serverUser.plan ?? plan,
-          selectedPlan: serverUser.selectedPlan ?? plan,
-          trialEndsAt: serverUser.trialEndsAt ?? null,
-          billingPending: serverUser.billingPending,
-          subscriptionState: serverUser.subscriptionState,
-          billingCountry: country,
-          email_verified: serverUser.emailVerified ?? false,
-          emailVerified: serverUser.emailVerified ?? false,
-        };
+        const user = toUserModel(response.data.user, {}, country);
         localStorage.setItem('auth_user', JSON.stringify(user));
 
         const meta: RegisterMeta = {
@@ -204,58 +215,22 @@ export const SupabaseAdapter = {
    * Start Checkout
    */
   async startCheckout(idempotencyKey?: string): Promise<RegisterMeta> {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
     const authHelper = await import('@/auth/lib/helpers');
     const auth = authHelper.getAuth();
-    const token = auth?.access_token;
-
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    if (idempotencyKey) {
-      headers['idempotency-key'] = idempotencyKey;
-    }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/register/start-checkout`, {
-        method: 'POST',
-        headers,
-      });
+      const data = await authService.startCheckout(
+        auth?.access_token,
+        idempotencyKey,
+      );
 
-      const response = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        const details = Array.isArray(response?.error?.details)
-          ? response.error.details.map((detail: any) => detail.message).join(', ')
-          : '';
-        const error = new Error(
-          response?.error?.message ||
-          details ||
-          response?.message ||
-          `Checkout start failed (${res.status})`
-        ) as Error & { status?: number; code?: string; details?: unknown };
-        error.status = res.status;
-        error.code = response?.error?.code;
-        error.details = response?.error?.details;
-        throw error;
-      }
-
-      if (response.success && (response.data || response.meta)) {
-        const data = response.data ?? {};
-        const meta = response.meta ?? {};
-        return {
-          billingPending: meta.billingPending ?? true,
-          checkoutUrl: data.checkoutUrl ?? meta.checkoutUrl ?? null,
-          subscriptionId: data.subscriptionId ?? meta.subscriptionId ?? null,
-          billingSetupFailed: meta.billingSetupFailed ?? false,
-          message: meta.message ?? null,
-        };
-      }
-
-      throw new Error('Invalid response from server');
+      return {
+        billingPending: true,
+        checkoutUrl: data.checkoutUrl,
+        subscriptionId: data.subscriptionId,
+        billingSetupFailed: false,
+        message: data.message,
+      };
     } catch (error: any) {
       console.error('startCheckout error:', error);
       throw error;
@@ -297,28 +272,7 @@ export const SupabaseAdapter = {
         const me = response.data.user;
         const cached = localStorage.getItem('auth_user');
         const cachedUser: Partial<UserModel> = cached ? JSON.parse(cached) : {};
-
-        const user: UserModel = {
-          ...MOCK_USER,
-          ...cachedUser,
-          id: me.id.toString(),
-          email: me.email,
-          name: me.name,
-          first_name: me.name ?? cachedUser.first_name ?? '',
-          last_name: cachedUser.last_name ?? '',
-          fullname: me.name ?? cachedUser.fullname ?? '',
-          role: me.role,
-          is_admin: me.role === 'ADMIN',
-          status: me.status,
-          plan: me.plan,
-          selectedPlan: me.selectedPlan,
-          trialEndsAt: me.trialEndsAt,
-          billingPending: me.billingPending,
-          subscriptionState: me.subscriptionState,
-          email_verified: me.emailVerified,
-          emailVerified: me.emailVerified,
-          billingCountry: me.billingCountry ?? cachedUser.billingCountry ?? null,
-        };
+        const user = toUserModel(me, cachedUser);
 
         localStorage.setItem('auth_user', JSON.stringify(user));
         return user;
@@ -339,74 +293,41 @@ export const SupabaseAdapter = {
    * Confirm Razorpay trial checkout and clear billingPending
    */
   async confirmBilling(subscriptionId: string, idempotencyKey?: string): Promise<UserModel> {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
     const authHelper = await import('@/auth/lib/helpers');
     const auth = authHelper.getAuth();
-    const token = auth?.access_token;
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    if (idempotencyKey) {
-      headers['idempotency-key'] = idempotencyKey;
-    }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/register/confirm-billing`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ subscriptionId }),
-      });
+      const me = await authService.confirmBilling(
+        subscriptionId,
+        auth?.access_token,
+        idempotencyKey,
+      );
+      const cached = localStorage.getItem('auth_user');
+      const cachedUser: Partial<UserModel> = cached ? JSON.parse(cached) : {};
+      const user = toUserModel(me, cachedUser);
 
-      const response = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          response?.error?.message ||
-          response?.message ||
-          `Billing confirmation failed (${res.status})`
-        );
-      }
-
-      if (response.success && response.data) {
-        const me = response.data.user;
-        const cached = localStorage.getItem('auth_user');
-        const cachedUser: Partial<UserModel> = cached ? JSON.parse(cached) : {};
-
-        const user: UserModel = {
-          ...MOCK_USER,
-          ...cachedUser,
-          id: me.id.toString(),
-          email: me.email,
-          name: me.name,
-          first_name: me.name ?? cachedUser.first_name ?? '',
-          last_name: cachedUser.last_name ?? '',
-          fullname: me.name ?? cachedUser.fullname ?? '',
-          role: me.role,
-          is_admin: me.role === 'ADMIN',
-          status: me.status,
-          plan: me.plan,
-          selectedPlan: me.selectedPlan,
-          trialEndsAt: me.trialEndsAt,
-          billingPending: me.billingPending,
-          subscriptionState: me.subscriptionState,
-          email_verified: me.emailVerified ?? cachedUser.email_verified ?? true,
-          emailVerified: me.emailVerified ?? cachedUser.emailVerified ?? true,
-          billingCountry: me.billingCountry ?? cachedUser.billingCountry ?? null,
-        };
-
-        localStorage.setItem('auth_user', JSON.stringify(user));
-        return user;
-      }
-
-      throw new Error('Invalid response from server');
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      return user;
     } catch (error: any) {
       console.error('confirmBilling error:', error);
       throw error;
     }
+  },
+
+  /**
+   * Update signup checkout preferences before the hosted checkout is created.
+   */
+  async updateRegisterPreferences(payload: {
+    country?: string;
+    plan?: 'STARTER' | 'PRO';
+  }): Promise<UserModel> {
+    const me = await authService.updateRegisterPreferences(payload);
+    const cached = localStorage.getItem('auth_user');
+    const cachedUser: Partial<UserModel> = cached ? JSON.parse(cached) : {};
+    const user = toUserModel(me, cachedUser, payload.country ?? null);
+
+    localStorage.setItem('auth_user', JSON.stringify(user));
+    return user;
   },
 
   /**
@@ -481,31 +402,7 @@ export const SupabaseAdapter = {
         ? JSON.parse(cached)
         : {};
 
-      const user: UserModel = {
-        ...MOCK_USER,
-        ...cachedUser,
-        // Identity
-        id: me.id.toString(),
-        email: me.email,
-        name: me.name,
-        first_name: me.name ?? cachedUser.first_name ?? '',
-        last_name: cachedUser.last_name ?? '',
-        fullname: me.name ?? cachedUser.fullname ?? '',
-        // Role & access
-        role: me.role,
-        is_admin: me.role === 'ADMIN',
-        // Account status
-        status: me.status,
-        // Billing & plan
-        plan: me.plan,
-        selectedPlan: me.selectedPlan,
-        trialEndsAt: me.trialEndsAt,
-        billingPending: me.billingPending,
-        subscriptionState: me.subscriptionState,
-        email_verified: me.emailVerified,
-        emailVerified: me.emailVerified,
-        billingCountry: me.billingCountry ?? cachedUser.billingCountry ?? null,
-      };
+      const user = toUserModel(me, cachedUser);
 
       // Keep the cache fresh
       localStorage.setItem('auth_user', JSON.stringify(user));
@@ -552,7 +449,18 @@ export const SupabaseAdapter = {
    * Logout the current user
    */
   async logout(): Promise<void> {
-    console.log('Adapter: Logged out');
-    localStorage.removeItem('auth_user');
+    const authHelper = await import('@/auth/lib/helpers');
+    const auth = authHelper.getAuth();
+
+    try {
+      if (auth?.refresh_token) {
+        await authService.logout(auth.refresh_token, auth.access_token);
+      }
+    } catch (error) {
+      console.warn('Logout revoke failed; clearing local session anyway', error);
+    } finally {
+      console.log('Adapter: Logged out');
+      localStorage.removeItem('auth_user');
+    }
   },
 };

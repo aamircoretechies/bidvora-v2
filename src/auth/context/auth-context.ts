@@ -27,10 +27,14 @@ export const AuthContext = createContext<{
     password_confirmation: string,
   ) => Promise<void>;
   confirmBilling: (subscriptionId: string, idempotencyKey?: string) => Promise<UserModel>;
+  updateRegisterPreferences: (payload: {
+    country?: string;
+    plan?: 'STARTER' | 'PRO';
+  }) => Promise<UserModel>;
   resendVerificationEmail: () => Promise<void>;
   getUser: () => Promise<UserModel | null>;
   updateProfile: (userData: Partial<UserModel>) => Promise<UserModel>;
-  logout: () => void;
+  logout: () => Promise<void>;
   verify: () => Promise<void>;
   isAdmin: boolean;
 }>({
@@ -57,10 +61,11 @@ export const AuthContext = createContext<{
   requestPasswordReset: async () => {},
   resetPassword: async () => {},
   confirmBilling: async () => ({} as UserModel),
+  updateRegisterPreferences: async () => ({} as UserModel),
   resendVerificationEmail: async () => {},
   getUser: async () => null,
   updateProfile: async () => ({}) as UserModel,
-  logout: () => {},
+  logout: async () => {},
   verify: async () => {},
   isAdmin: false,
 });

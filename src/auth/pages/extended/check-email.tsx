@@ -42,18 +42,18 @@ const CheckEmail = () => {
       </h3>
       <div className="text-sm text-center text-secondary-foreground mb-7.5">
         Please click the link sent to your email&nbsp;
-        <span className="text-sm text-mono font-medium">
+        <span className="text-sm text-mono font-semibold">
           {user?.email || 'your email'}
         </span>
         <br />
-        to verify your account. Thank you
+        to verify your account. Check spam box as well. Thank you
       </div>
 
-      <div className="flex justify-center mb-5">
-        <Link to="/" className="btn btn-primary flex justify-center">
+     {/*  <div className="flex justify-center mb-5">
+        <Link to="/" className="btn btn-muted flex justify-center">
           Back to Home
         </Link>
-      </div>
+      </div> */}
 
       <div className="flex flex-col items-center justify-center gap-2">
         <div className="flex items-center gap-1">
@@ -63,7 +63,7 @@ const CheckEmail = () => {
           <button
             onClick={handleResend}
             disabled={isResending}
-            className="text-sm font-semibold text-foreground hover:text-primary disabled:opacity-50 flex items-center gap-1"
+            className="text-sm font-semibold text-primary hover:underline cursor-pointer disabled:opacity-50 flex items-center gap-1"
           >
             {isResending && <Loader2 className="h-3 w-3 animate-spin" />}
             Resend

@@ -6,8 +6,25 @@ import { AlertCircle, CreditCard, Loader2 } from 'lucide-react';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 
 const CHECKOUT_SUBSCRIPTION_KEY = 'register_checkout_subscription_id';
+const CONFIRM_BILLING_IDEMPOTENCY_KEY = 'confirm_billing_idempotency_key';
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 60000;
+
+function createIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `confirm-billing-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getConfirmBillingIdempotencyKey() {
+  const existing = sessionStorage.getItem(CONFIRM_BILLING_IDEMPOTENCY_KEY);
+  if (existing) return existing;
+
+  const key = createIdempotencyKey();
+  sessionStorage.setItem(CONFIRM_BILLING_IDEMPOTENCY_KEY, key);
+  return key;
+}
 
 function readSubscriptionId(searchParams: URLSearchParams) {
   return (
@@ -44,12 +61,16 @@ export function BillingPendingPage() {
       }
 
       try {
-        const currentUser = await confirmBilling(subscriptionId);
+        const currentUser = await confirmBilling(
+          subscriptionId,
+          getConfirmBillingIdempotencyKey(),
+        );
         if (!isMounted) return;
 
         if (!currentUser.billingPending) {
           localStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
           sessionStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
+          sessionStorage.removeItem(CONFIRM_BILLING_IDEMPOTENCY_KEY);
           navigate('/');
           return;
         }
@@ -87,10 +108,14 @@ export function BillingPendingPage() {
         throw new Error('We could not find the subscription from checkout.');
       }
 
-      const currentUser = await confirmBilling(subscriptionId);
+      const currentUser = await confirmBilling(
+        subscriptionId,
+        getConfirmBillingIdempotencyKey(),
+      );
       if (!currentUser.billingPending) {
         localStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
         sessionStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
+        sessionStorage.removeItem(CONFIRM_BILLING_IDEMPOTENCY_KEY);
         navigate('/');
       } else {
         setError('Payment has not been confirmed yet. Please wait a moment or try again.');

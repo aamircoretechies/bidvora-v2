@@ -190,4 +190,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+
+  patch: (endpoint: string, body: unknown, options: RequestInit = {}) =>
+    apiClient(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
 };

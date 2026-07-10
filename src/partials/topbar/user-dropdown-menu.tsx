@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { useAuth } from '@/auth/context/auth-context';
 import { I18N_LANGUAGES } from '@/i18n/config';
 import { Language } from '@/i18n/types';
@@ -40,6 +40,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
   const { logout, user } = useAuth();
   const { currenLanguage, changeLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Use display data from currentUser
   const displayName =
@@ -58,6 +59,17 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
 
   const handleThemeToggle = (checked: boolean) => {
     setTheme(checked ? 'dark' : 'light');
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -257,9 +269,10 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
             variant="outline"
             size="sm"
             className="w-full hover:bg-destructive hover:text-white"
-            onClick={logout}
+            disabled={isLoggingOut}
+            onClick={handleLogout}
           >
-            Logout
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
           </Button>
         </div>
       </DropdownMenuContent>

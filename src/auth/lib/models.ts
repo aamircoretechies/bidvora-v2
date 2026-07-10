@@ -42,11 +42,13 @@ export interface UserModel {
   is_admin?: boolean; // Added admin flag
 
   // ── Server-authoritative fields from GET /auth/me ─────────────────────────
-  role?: 'ADMIN' | 'USER';
+  role?: 'ADMIN' | 'CLIENT' | 'USER';
   status?: 'PENDING_VERIFICATION' | 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
   plan?: 'STARTER' | 'PRO';
   selectedPlan?: 'STARTER' | 'PRO';
   billingCountry?: string | null;
+  billingProvider?: 'RAZORPAY' | 'PAYPAL' | null;
+  billingCurrency?: 'inr' | 'usd' | null;
   trialEndsAt?: string | null;
   billingPending?: boolean;
   subscriptionState?:
@@ -58,5 +60,6 @@ export interface UserModel {
     | 'HALTED'
     | 'CANCELLED'
     | 'COMPLETED'
-    | 'EXPIRED';
+    | 'EXPIRED'
+    | 'PAST_DUE';
 }

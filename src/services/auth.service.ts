@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 export type UserPlan = 'STARTER' | 'PRO';
 
 /** Account roles */
-export type UserRole = 'ADMIN' | 'USER';
+export type UserRole = 'ADMIN' | 'CLIENT' | 'USER';
 
 /** Account lifecycle statuses */
 export type UserStatus =
@@ -26,7 +26,8 @@ export type SubscriptionState =
   | 'HALTED'
   | 'CANCELLED'
   | 'COMPLETED'
-  | 'EXPIRED';
+  | 'EXPIRED'
+  | 'PAST_DUE';
 
 /**
  * Full user payload returned by GET /auth/me
@@ -43,7 +44,9 @@ export interface MeUserPayload {
   trialEndsAt: string | null;
   billingPending: boolean;
   billingCountry?: string | null;
-  emailVerified?: boolean;
+  billingProvider?: 'RAZORPAY' | 'PAYPAL' | null;
+  billingCurrency?: 'inr' | 'usd' | null;
+  emailVerified: boolean;
   subscriptionState: SubscriptionState;
 }
 
@@ -55,6 +58,14 @@ export interface MeResponse {
   meta?: Record<string, unknown>;
 }
 
+export interface AuthErrorResponse {
+  success: false;
+  error: {
+    code: 'UNAUTHORIZED' | string;
+    message: string;
+  };
+}
+
 export interface RefreshResponse {
   success: true;
   data: {
@@ -62,6 +73,84 @@ export interface RefreshResponse {
     refreshToken: string;
   };
   meta?: Record<string, unknown>;
+}
+
+export interface LogoutResponse {
+  success: true;
+  data: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface RegisterPreferencesRequest {
+  country?: string;
+  plan?: UserPlan;
+}
+
+export interface RegisterPreferencesResponse {
+  success: true;
+  data: {
+    user: MeUserPayload;
+  };
+  meta?: Record<string, unknown>;
+}
+
+export interface StartCheckoutResponse {
+  success: true;
+  data: {
+    checkoutUrl: string;
+    subscriptionId: string;
+  };
+  meta?: {
+    message?: string;
+  } & Record<string, unknown>;
+}
+
+export interface ConfirmBillingResponse {
+  success: true;
+  data: {
+    user: MeUserPayload;
+  };
+  meta?: {
+    message?: string;
+  } & Record<string, unknown>;
+}
+
+export interface AuthEndpointErrorResponse {
+  success: false;
+  error: {
+    code:
+      | 'BAD_REQUEST'
+      | 'FORBIDDEN'
+      | 'UNAUTHORIZED'
+      | 'VALIDATION_ERROR'
+      | string;
+    message: string;
+    details?: Array<{
+      field: string;
+      message: string;
+    }>;
+  };
+}
+
+function createEndpointError(
+  fallbackMessage: string,
+  status: number,
+  response: AuthEndpointErrorResponse | null,
+) {
+  const details = response?.error.details
+    ?.map((detail) => detail.message)
+    .join(', ');
+  const error = new Error(
+    details ||
+      response?.error.message ||
+      `${fallbackMessage} (${status})`,
+  ) as Error & { status?: number; code?: string; details?: unknown };
+
+  error.status = status;
+  error.code = response?.error.code;
+  error.details = response?.error.details;
+
+  return error;
 }
 
 // ─── Auth Service ─────────────────────────────────────────────────────────────
@@ -81,7 +170,7 @@ export const authService = {
    *   • On every protected-route mount via `verify()` (session check)
    */
   async getMe(): Promise<MeUserPayload> {
-    const response: MeResponse = await api.get('/auth/me');
+    const response = (await api.get('/auth/me')) as MeResponse;
 
     if (!response.success || !response.data?.user) {
       throw new Error('Unexpected response from /auth/me');
@@ -124,6 +213,165 @@ export const authService = {
     }
 
     return data.data;
+  },
+
+  /**
+   * POST /auth/logout
+   *
+   * Revokes the current refresh token. This intentionally uses raw fetch
+   * instead of `api.post` so logout never triggers token refresh.
+   */
+  async logout(refreshToken: string, accessToken?: string): Promise<LogoutResponse> {
+    const API_BASE_URL =
+      import.meta.env.VITE_API_BASE_URL ||
+      'https://freelancer-backend.coretechiestest.org/api/v1';
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    const data = (await response.json().catch(() => null)) as
+      | LogoutResponse
+      | AuthErrorResponse
+      | null;
+
+    if (!response.ok || !data?.success) {
+      throw new Error(
+        data && !data.success
+          ? data.error.message
+          : `Logout failed (${response.status})`,
+      );
+    }
+
+    return data;
+  },
+
+  /**
+   * PATCH /auth/register/preferences
+   *
+   * Updates signup billing country and/or selected plan before checkout starts.
+   */
+  async updateRegisterPreferences(
+    payload: RegisterPreferencesRequest,
+  ): Promise<MeUserPayload> {
+    const response = (await api.patch(
+      '/auth/register/preferences',
+      payload,
+    )) as RegisterPreferencesResponse;
+
+    if (!response.success || !response.data?.user) {
+      throw new Error('Unexpected response from /auth/register/preferences');
+    }
+
+    return response.data.user;
+  },
+
+  /**
+   * POST /auth/register/start-checkout
+   *
+   * Creates the trial subscription and returns the hosted checkout URL.
+   */
+  async startCheckout(
+    accessToken?: string,
+    idempotencyKey?: string,
+  ): Promise<StartCheckoutResponse['data'] & { message: string | null }> {
+    const API_BASE_URL =
+      import.meta.env.VITE_API_BASE_URL ||
+      'https://freelancer-backend.coretechiestest.org/api/v1';
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    if (idempotencyKey) {
+      headers['idempotency-key'] = idempotencyKey;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/auth/register/start-checkout`, {
+      method: 'POST',
+      headers,
+    });
+    const response = (await res.json().catch(() => null)) as
+      | StartCheckoutResponse
+      | AuthEndpointErrorResponse
+      | null;
+
+    if (!res.ok || !response?.success) {
+      throw createEndpointError(
+        'Checkout start failed',
+        res.status,
+        response && !response.success ? response : null,
+      );
+    }
+
+    return {
+      checkoutUrl: response.data.checkoutUrl,
+      subscriptionId: response.data.subscriptionId,
+      message: response.meta?.message ?? null,
+    };
+  },
+
+  /**
+   * POST /auth/register/confirm-billing
+   *
+   * Polls the payment provider subscription and clears billingPending when active.
+   */
+  async confirmBilling(
+    subscriptionId: string,
+    accessToken?: string,
+    idempotencyKey?: string,
+  ): Promise<MeUserPayload> {
+    const API_BASE_URL =
+      import.meta.env.VITE_API_BASE_URL ||
+      'https://freelancer-backend.coretechiestest.org/api/v1';
+
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
+
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    if (idempotencyKey) {
+      headers['idempotency-key'] = idempotencyKey;
+    }
+
+    const res = await fetch(`${API_BASE_URL}/auth/register/confirm-billing`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ subscriptionId }),
+    });
+    const response = (await res.json().catch(() => null)) as
+      | ConfirmBillingResponse
+      | AuthEndpointErrorResponse
+      | null;
+
+    if (!res.ok || !response?.success) {
+      throw createEndpointError(
+        'Billing confirmation failed',
+        res.status,
+        response && !response.success ? response : null,
+      );
+    }
+
+    return response.data.user;
   },
 
   /**
