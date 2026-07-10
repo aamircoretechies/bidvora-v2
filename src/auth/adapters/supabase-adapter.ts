@@ -77,7 +77,7 @@ export const SupabaseAdapter = {
         body: JSON.stringify({ email, password }),
       });
 
-      const response = await res.json();
+      const response = await res.json().catch(() => null);
 
       if (!res.ok) {
         // Surface the actual server error message (e.g. "Invalid credentials")
@@ -163,7 +163,7 @@ export const SupabaseAdapter = {
         body: JSON.stringify({ email, confirmEmail, password, name, plan, country }),
       });
 
-      const response = await res.json();
+      const response = await res.json().catch(() => null);
 
       if (!res.ok) {
         // 422 Validation errors – surface field-level messages
