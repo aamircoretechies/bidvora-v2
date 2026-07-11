@@ -8,6 +8,56 @@ import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 
 const CHECKOUT_SUBSCRIPTION_KEY = 'register_checkout_subscription_id';
 const CHECKOUT_IDEMPOTENCY_KEY = 'register_checkout_idempotency_key';
+const RAZORPAY_SCRIPT_ID = 'razorpay-checkout-script';
+const CONFIRM_POLL_INTERVAL_MS = 2500;
+const CONFIRM_POLL_TIMEOUT_MS = 60000;
+
+interface RazorpayOptions {
+  key: string;
+  subscription_id: string;
+  name: string;
+  prefill?: { email: string; name: string };
+  handler: () => void | Promise<void>;
+  modal: { ondismiss: () => void };
+}
+
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: 'payment.failed', handler: (response: unknown) => void) => void;
+}
+
+type RazorpayConstructor = new (options: RazorpayOptions) => RazorpayInstance;
+
+let razorpayScriptPromise: Promise<void> | null = null;
+
+function loadRazorpayScript() {
+  const razorpayWindow = window as Window & { Razorpay?: RazorpayConstructor };
+  if (razorpayWindow.Razorpay) return Promise.resolve();
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+
+  razorpayScriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.getElementById(RAZORPAY_SCRIPT_ID) as HTMLScriptElement | null;
+    const script = existing ?? document.createElement('script');
+
+    const handleLoad = () => resolve();
+    const handleError = () => {
+      razorpayScriptPromise = null;
+      reject(new Error('Unable to load Razorpay Checkout. Please try again.'));
+    };
+
+    script.addEventListener('load', handleLoad, { once: true });
+    script.addEventListener('error', handleError, { once: true });
+
+    if (!existing) {
+      script.id = RAZORPAY_SCRIPT_ID;
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  });
+
+  return razorpayScriptPromise;
+}
 
 function createIdempotencyKey() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -75,7 +125,14 @@ function formatZeroPrice(currency: PaymentCurrency) {
 }
 
 export function CheckoutReviewPage() {
-  const { auth, user, startCheckout, getUser, updateRegisterPreferences } = useAuth();
+  const {
+    auth,
+    user,
+    startCheckout,
+    confirmBilling,
+    getUser,
+    updateRegisterPreferences,
+  } = useAuth();
   const navigate = useNavigate();
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -87,6 +144,31 @@ export function CheckoutReviewPage() {
     loading: plansLoading,
     error: plansError,
   } = usePlans(selectedBillingCountry);
+
+  const confirmRazorpayBilling = async (subscriptionId: string) => {
+    const deadline = Date.now() + CONFIRM_POLL_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      try {
+        const currentUser = await confirmBilling(
+          subscriptionId,
+          `confirm-razorpay-${subscriptionId}`,
+        );
+        if (!currentUser.billingPending) return;
+      } catch (confirmationError) {
+        const apiError = confirmationError as Error & { status?: number };
+        if (apiError.status !== 400) throw confirmationError;
+      }
+
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, CONFIRM_POLL_INTERVAL_MS),
+      );
+    }
+
+    throw new Error(
+      'Billing confirmation timed out. Your payment may still complete shortly.',
+    );
+  };
 
   useEffect(() => {
     setSelectedCurrency(getCurrencyFromCountry(user?.billingCountry));
@@ -113,12 +195,60 @@ export function CheckoutReviewPage() {
         localStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, meta.subscriptionId);
         sessionStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, meta.subscriptionId);
       }
-      
-      if (meta.checkoutUrl) {
+
+      if (meta.checkoutMode === 'razorpay_modal') {
+        if (!meta.razorpayKeyId || !meta.subscriptionId) {
+          throw new Error('Razorpay checkout configuration is incomplete.');
+        }
+
+        await loadRazorpayScript();
+        const Razorpay = (window as Window & { Razorpay?: RazorpayConstructor })
+          .Razorpay;
+        if (!Razorpay) throw new Error('Razorpay Checkout is unavailable.');
+
+        let paymentSubmitted = false;
+        const checkout = new Razorpay({
+          key: meta.razorpayKeyId,
+          subscription_id: meta.subscriptionId,
+          name: 'Bidvora',
+          prefill: meta.prefill ?? undefined,
+          handler: async () => {
+            paymentSubmitted = true;
+            try {
+              await confirmRazorpayBilling(meta.subscriptionId!);
+              localStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
+              sessionStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
+              sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
+              navigate('/');
+            } catch (confirmationError) {
+              setError(
+                confirmationError instanceof Error
+                  ? confirmationError.message
+                  : 'Billing confirmation failed.',
+              );
+              setIsProcessing(false);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              if (!paymentSubmitted) setIsProcessing(false);
+            },
+          },
+        });
+
+        checkout.on('payment.failed', () => {
+          setError('Razorpay could not complete the payment. Please try again.');
+          setIsProcessing(false);
+        });
+        checkout.open();
+        return;
+      }
+
+      if (meta.checkoutMode === 'redirect' && meta.checkoutUrl) {
         sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
         window.location.assign(meta.checkoutUrl);
       } else {
-        navigate('/auth/register/billing/callback');
+        throw new Error('Unsupported checkout response. Please try again.');
       }
     } catch (err) {
       console.error('Start checkout error:', err);

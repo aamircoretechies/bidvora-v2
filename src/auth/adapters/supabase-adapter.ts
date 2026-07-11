@@ -226,10 +226,13 @@ export const SupabaseAdapter = {
 
       return {
         billingPending: true,
-        checkoutUrl: data.checkoutUrl,
+        checkoutUrl: data.checkoutUrl ?? null,
         subscriptionId: data.subscriptionId,
         billingSetupFailed: false,
         message: data.message,
+        checkoutMode: data.checkoutMode,
+        razorpayKeyId: data.razorpayKeyId ?? null,
+        prefill: data.prefill ?? null,
       };
     } catch (error: any) {
       console.error('startCheckout error:', error);

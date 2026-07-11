@@ -138,8 +138,14 @@ export interface RegisterPreferencesResponse {
 export interface StartCheckoutResponse {
   success: true;
   data: {
-    checkoutUrl: string;
+    checkoutMode: 'razorpay_modal' | 'redirect';
     subscriptionId: string;
+    checkoutUrl?: string;
+    razorpayKeyId?: string;
+    prefill?: {
+      email: string;
+      name: string;
+    };
   };
   meta?: {
     message?: string;
@@ -361,9 +367,26 @@ export const authService = {
       );
     }
 
+    if (
+      response.data.checkoutMode === 'razorpay_modal' &&
+      (!response.data.razorpayKeyId || !response.data.subscriptionId)
+    ) {
+      throw new Error('Razorpay checkout configuration is incomplete');
+    }
+
+    if (
+      response.data.checkoutMode === 'redirect' &&
+      !response.data.checkoutUrl
+    ) {
+      throw new Error('Redirect checkout URL is missing');
+    }
+
     return {
+      checkoutMode: response.data.checkoutMode,
       checkoutUrl: response.data.checkoutUrl,
       subscriptionId: response.data.subscriptionId,
+      razorpayKeyId: response.data.razorpayKeyId,
+      prefill: response.data.prefill,
       message: response.meta?.message ?? null,
     };
   },

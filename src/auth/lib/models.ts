@@ -17,6 +17,12 @@ export interface RegisterMeta {
   subscriptionId: string | null;
   billingSetupFailed: boolean;
   message: string | null;
+  checkoutMode?: 'razorpay_modal' | 'redirect' | null;
+  razorpayKeyId?: string | null;
+  prefill?: {
+    email: string;
+    name: string;
+  } | null;
 }
 
 // User model representing the user profile
