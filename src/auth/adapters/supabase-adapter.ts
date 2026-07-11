@@ -65,7 +65,7 @@ export const SupabaseAdapter = {
 
     const API_BASE_URL =
       import.meta.env.VITE_API_BASE_URL ||
-      'https://freelancer-backend.coretechiestest.org/api/v1';
+      '/api/v1';
 
     try {
       // Use raw fetch to bypass the apiClient 401 interceptor.
@@ -147,7 +147,7 @@ export const SupabaseAdapter = {
   ): Promise<AuthModel & { meta: RegisterMeta }> {
     const API_BASE_URL =
       import.meta.env.VITE_API_BASE_URL ||
-      'https://freelancer-backend.coretechiestest.org/api/v1';
+      '/api/v1';
 
     try {
       const headers: Record<string, string> = {
@@ -241,7 +241,7 @@ export const SupabaseAdapter = {
    * Verify Email
    */
   async verifyEmail(token: string): Promise<UserModel> {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
     const encodedToken = encodeURIComponent(token.trim());
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 15000);
@@ -353,7 +353,7 @@ export const SupabaseAdapter = {
    * Request another verification email
    */
   async resendVerificationEmail(): Promise<void> {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://freelancer-backend.coretechiestest.org/api/v1';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
     const authHelper = await import('@/auth/lib/helpers');
     const auth = authHelper.getAuth();
     const token = auth?.access_token;

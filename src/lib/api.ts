@@ -2,7 +2,7 @@
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  'https://freelancer-backend.coretechiestest.org/api/v1';
+  '/api/v1';
 
 // ─── Token storage helpers ────────────────────────────────────────────────────
 
