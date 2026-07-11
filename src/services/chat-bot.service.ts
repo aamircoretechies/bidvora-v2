@@ -1,28 +1,35 @@
 import { api } from '@/lib/api';
+import { z } from 'zod';
 
 // ─── Response shapes (mirror the API contract) ────────────────────────────────
 
 export type ChatBotStatus = string;
 
-export interface ChatBotApiResponse {
-  success: true;
-  data: {
-    chatStatus: ChatBotStatus;
-  };
-  meta?: Record<string, unknown>;
-}
+const chatAgentControlResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    orchestratorStatus: z.string(),
+    chatStatus: z.string(),
+    chatBotEnabled: z.boolean(),
+    chatEligible: z.boolean(),
+    chatBotActive: z.boolean(),
+    account: z.object({
+      status: z.string(),
+      plan: z.string(),
+      role: z.string(),
+    }),
+  }),
+  meta: z
+    .object({
+      message: z.string().optional(),
+    })
+    .passthrough()
+    .optional(),
+});
 
-export interface ChatBotStopResponse {
-  success: true;
-  data: string;
-  meta?: Record<string, unknown>;
-}
-
-/**
- * Status strings the server sends when the chat bot is considered active/running.
- * Centralised here so no component needs to know the raw string values.
- */
-export const ACTIVE_CHAT_STATUSES = new Set(['running', 'active', 'started']);
+export type ChatAgentControlData = z.infer<
+  typeof chatAgentControlResponseSchema
+>['data'];
 
 // ─── Chat Bot Service ─────────────────────────────────────────────────────────
 
@@ -32,46 +39,46 @@ export const chatBotService = {
    *
    * Returns the current chat bot status without mutating it.
    */
-  async getStatus(): Promise<ChatBotStatus> {
-    const response = await api.get('/chats/bot/status') as ChatBotApiResponse;
+  async getStatus(): Promise<ChatAgentControlData> {
+    const response = await api.get('/chats/bot/status');
+    const parsed = chatAgentControlResponseSchema.safeParse(response);
 
-    if (!response.success || !response.data?.chatStatus) {
-      throw new Error('Unexpected response from /chats/bot/status');
+    if (!parsed.success) {
+      throw new Error('The chat-agent status response has an invalid schema');
     }
 
-    return response.data.chatStatus;
+    return parsed.data.data;
   },
 
   /**
-   * POST /chats/bot/start
+   * POST /chats/agent/start
    *
    * Starts the chat reply bot.
    */
-  async start(): Promise<ChatBotStatus> {
-    const response = await api.post('/chats/bot/start', {}) as ChatBotApiResponse;
+  async startAgent(): Promise<ChatAgentControlData> {
+    const response = await api.post('/chats/agent/start', {});
+    const parsed = chatAgentControlResponseSchema.safeParse(response);
 
-    if (!response.success || !response.data?.chatStatus) {
-      throw new Error('Unexpected response from /chats/bot/start');
+    if (!parsed.success) {
+      throw new Error('The start-chat-agent response has an invalid schema');
     }
 
-    return response.data.chatStatus;
+    return parsed.data.data;
   },
 
   /**
-   * POST /chats/bot/stop
+   * POST /chats/agent/stop
    *
    * Stops the chat reply bot.
    */
-  async stop(): Promise<ChatBotStatus> {
-    const response = await api.post('/chats/bot/stop', {}) as ChatBotStopResponse;
+  async stopAgent(): Promise<ChatAgentControlData> {
+    const response = await api.post('/chats/agent/stop', {});
+    const parsed = chatAgentControlResponseSchema.safeParse(response);
 
-    if (!response.success) {
-      throw new Error('Unexpected response from /chats/bot/stop');
+    if (!parsed.success) {
+      throw new Error('The stop-chat-agent response has an invalid schema');
     }
 
-    // The API documentation states the stop endpoint returns data: "string"
-    // We handle it here and ensure we return a string representation.
-    // If it returns 'stopped', we return it, or fallback to 'stopped'.
-    return typeof response.data === 'string' && response.data ? response.data : 'stopped';
+    return parsed.data.data;
   },
 };

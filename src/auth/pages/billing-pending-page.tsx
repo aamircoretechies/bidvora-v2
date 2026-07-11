@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context/auth-context';
+import { useConfirmCheckout } from '@/hooks/use-confirm-checkout';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CreditCard, Loader2 } from 'lucide-react';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 
 const CHECKOUT_SUBSCRIPTION_KEY = 'register_checkout_subscription_id';
+const CHECKOUT_SESSION_KEY = 'billing_checkout_session_id';
 const CONFIRM_BILLING_IDEMPOTENCY_KEY = 'confirm_billing_idempotency_key';
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 60000;
@@ -37,19 +39,43 @@ function readSubscriptionId(searchParams: URLSearchParams) {
   );
 }
 
+function readSessionId(searchParams: URLSearchParams) {
+  return (
+    searchParams.get('sessionId') ||
+    searchParams.get('session_id') ||
+    searchParams.get('checkout_session_id') ||
+    ''
+  );
+}
+
+function clearCheckoutStorage() {
+  localStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
+  sessionStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
+  sessionStorage.removeItem(CONFIRM_BILLING_IDEMPOTENCY_KEY);
+  sessionStorage.removeItem(CHECKOUT_SESSION_KEY);
+  localStorage.removeItem(CHECKOUT_SESSION_KEY);
+}
+
 export function BillingPendingPage() {
   const { confirmBilling } = useAuth();
+  const { mutateAsync: confirmCheckoutSession } = useConfirmCheckout();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [confirming, setConfirming] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionId] = useState(() => readSubscriptionId(searchParams));
+  const [sessionId] = useState(() => readSessionId(searchParams));
 
   useEffect(() => {
     if (subscriptionId) {
       sessionStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, subscriptionId);
       localStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, subscriptionId);
+    }
+
+    if (sessionId) {
+      sessionStorage.setItem(CHECKOUT_SESSION_KEY, sessionId);
+      localStorage.setItem(CHECKOUT_SESSION_KEY, sessionId);
     }
 
     if (window.location.search) {
@@ -59,6 +85,37 @@ export function BillingPendingPage() {
     let isMounted = true;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const startedAt = Date.now();
+
+    if (sessionId) {
+      const confirmPaidSession = async () => {
+        try {
+          const result = await confirmCheckoutSession(sessionId);
+          if (!isMounted) return;
+
+          if (!result.subscription.checkoutPendingAt) {
+            clearCheckoutStorage();
+            navigate('/settings/subscription', { replace: true });
+            return;
+          }
+
+          setConfirming(false);
+          setError('Checkout is still pending confirmation. Please try again shortly.');
+        } catch (sessionError) {
+          if (!isMounted) return;
+          setConfirming(false);
+          setError(
+            sessionError instanceof Error
+              ? sessionError.message
+              : 'Failed to confirm the paid checkout session.',
+          );
+        }
+      };
+
+      void confirmPaidSession();
+      return () => {
+        isMounted = false;
+      };
+    }
 
     const pollBilling = async () => {
       if (!subscriptionId) {
@@ -77,9 +134,7 @@ export function BillingPendingPage() {
         if (!isMounted) return;
 
         if (!currentUser.billingPending) {
-          localStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
-          sessionStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
-          sessionStorage.removeItem(CONFIRM_BILLING_IDEMPOTENCY_KEY);
+          clearCheckoutStorage();
           navigate('/');
           return;
         }
@@ -106,12 +161,23 @@ export function BillingPendingPage() {
       isMounted = false;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [confirmBilling, navigate, subscriptionId]);
+  }, [confirmBilling, confirmCheckoutSession, navigate, sessionId, subscriptionId]);
 
   const handleConfirm = async () => {
     try {
       setConfirming(true);
       setError(null);
+
+      if (sessionId) {
+        const result = await confirmCheckoutSession(sessionId);
+        if (!result.subscription.checkoutPendingAt) {
+          clearCheckoutStorage();
+          navigate('/settings/subscription', { replace: true });
+        } else {
+          setError('Checkout is still pending confirmation. Please try again shortly.');
+        }
+        return;
+      }
 
       if (!subscriptionId) {
         throw new Error('We could not find the subscription from checkout.');
@@ -122,9 +188,7 @@ export function BillingPendingPage() {
         getConfirmBillingIdempotencyKey(),
       );
       if (!currentUser.billingPending) {
-        localStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
-        sessionStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
-        sessionStorage.removeItem(CONFIRM_BILLING_IDEMPOTENCY_KEY);
+        clearCheckoutStorage();
         navigate('/');
       } else {
         setError('Payment has not been confirmed yet. Please wait a moment or try again.');

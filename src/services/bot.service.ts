@@ -1,23 +1,35 @@
 import { api } from '@/lib/api';
+import { z } from 'zod';
 
 // ─── Response shapes (mirror the API contract) ────────────────────────────────
 
 export type BotStatus = string;
 
-/** Shared shape for /bot/start, /bot/stop, and /bot/status */
-export interface BotApiResponse {
-  success: true;
-  data: {
-    botStatus: BotStatus;
-  };
-  meta?: Record<string, unknown>;
-}
+const biddingControlResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    orchestratorStatus: z.string(),
+    botStatus: z.string(),
+    biddingEnabled: z.boolean(),
+    biddingEligible: z.boolean(),
+    biddingActive: z.boolean(),
+    account: z.object({
+      status: z.string(),
+      plan: z.string(),
+      role: z.string(),
+    }),
+  }),
+  meta: z
+    .object({
+      message: z.string().optional(),
+    })
+    .passthrough()
+    .optional(),
+});
 
-/**
- * Status strings the server sends when the bot is considered active/running.
- * Centralised here so no component needs to know the raw string values.
- */
-export const ACTIVE_STATUSES = new Set(['running', 'active', 'started']);
+export type BiddingControlData = z.infer<
+  typeof biddingControlResponseSchema
+>['data'];
 
 // ─── Bot Service ──────────────────────────────────────────────────────────────
 
@@ -29,39 +41,45 @@ export const ACTIVE_STATUSES = new Set(['running', 'active', 'started']);
  */
 export const botService = {
   /**
-   * POST /bot/start
+   * POST /bot/bidding/start
    *
    * Starts the automated project-bidding bot for the authenticated user.
    * Requires a valid Bearer token (attached automatically by apiClient).
    *
-   * @returns The bot status string returned by the server (e.g. "running")
+   * @returns The complete server-authoritative bidding state.
    */
-  async start(): Promise<BotStatus> {
-    const response = await api.post('/bot/start', {}) as BotApiResponse;
+  async startBidding(): Promise<BiddingControlData> {
+    const response = await api.post('/bot/bidding/start', {});
+    const parsed = biddingControlResponseSchema.safeParse(response);
 
-    if (!response.success || !response.data?.botStatus) {
-      throw new Error('Unexpected response from /bot/start');
+    if (!parsed.success) {
+      throw new Error(
+        'The start-bidding response has an invalid schema',
+      );
     }
 
-    return response.data.botStatus;
+    return parsed.data.data;
   },
 
   /**
-   * POST /bot/stop
+   * POST /bot/bidding/stop
    *
    * Stops the running project-bidding bot for the authenticated user.
    * Requires a valid Bearer token (attached automatically by apiClient).
    *
-   * @returns The bot status string returned by the server (e.g. "stopped")
+   * @returns The complete server-authoritative bidding state.
    */
-  async stop(): Promise<BotStatus> {
-    const response = await api.post('/bot/stop', {}) as BotApiResponse;
+  async stopBidding(): Promise<BiddingControlData> {
+    const response = await api.post('/bot/bidding/stop', {});
+    const parsed = biddingControlResponseSchema.safeParse(response);
 
-    if (!response.success || !response.data?.botStatus) {
-      throw new Error('Unexpected response from /bot/stop');
+    if (!parsed.success) {
+      throw new Error(
+        'The stop-bidding response has an invalid schema',
+      );
     }
 
-    return response.data.botStatus;
+    return parsed.data.data;
   },
 
   /**
@@ -71,16 +89,16 @@ export const botService = {
    * Called on mount so the UI reflects real server state immediately,
    * even if the bot was started in a previous session.
    *
-   * @returns The bot status string returned by the server
+   * @returns The complete server-authoritative per-user bidding state.
    */
-  async getStatus(): Promise<BotStatus> {
-    const response = await api.get('/bot/status') as BotApiResponse;
+  async getStatus(): Promise<BiddingControlData> {
+    const response = await api.get('/bot/status');
+    const parsed = biddingControlResponseSchema.safeParse(response);
 
-    if (!response.success || !response.data?.botStatus) {
-      throw new Error('Unexpected response from /bot/status');
+    if (!parsed.success) {
+      throw new Error('The bidding-status response has an invalid schema');
     }
 
-    return response.data.botStatus;
+    return parsed.data.data;
   },
 };
-

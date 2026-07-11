@@ -18,11 +18,12 @@ function daysUntil(iso: string | null): number | null {
 
 const Upgrade = () => {
   const { user } = useAuth();
-  const { subscription } = useSubscription();
+  const { subscription, loading: subscriptionLoading } = useSubscription();
 
   // Determine if we're still in a trial period
   const isTrial = user?.status === 'TRIAL' || user?.status === 'PENDING_VERIFICATION';
   const trialDays = daysUntil(user?.trialEndsAt ?? null);
+  const checkoutPending = Boolean(subscription?.checkoutPendingAt);
 
   // Show the upgrade banner only for non-PRO or trial plans
   const planLabel = (subscription?.plan ?? user?.plan ?? 'STARTER')
@@ -60,7 +61,7 @@ const Upgrade = () => {
                   Upgrade your plan to{' '}
                   {planLabel === 'Starter' ? 'Pro' : 'Enterprise'}
                 </Link>
-                {isTrial && trialDays !== null && (
+                {isTrial && !subscriptionLoading && !checkoutPending && trialDays !== null && (
                   <Badge variant="destructive" appearance="light">
                     Trial expires in {trialDays} day{trialDays !== 1 ? 's' : ''}
                   </Badge>

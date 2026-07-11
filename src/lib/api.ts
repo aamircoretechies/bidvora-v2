@@ -163,9 +163,13 @@ export const apiClient = async (
 
   // ── Other error statuses ────────────────────────────────────────────────────
   const errorData = await response.json().catch(() => null);
-  throw new Error(
+  const error = new Error(
     errorData?.error?.message || `Error: ${response.status} ${response.statusText}`,
-  );
+  ) as Error & { status?: number; code?: string; details?: unknown };
+  error.status = response.status;
+  error.code = errorData?.error?.code;
+  error.details = errorData?.error?.details;
+  throw error;
 };
 
 // ─── Convenience wrappers ─────────────────────────────────────────────────────

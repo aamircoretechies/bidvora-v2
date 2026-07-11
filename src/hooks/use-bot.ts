@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { botService, BotStatus, ACTIVE_STATUSES } from '@/services/bot.service';
+import {
+  botService,
+  type BiddingControlData,
+  type BotStatus,
+} from '@/services/bot.service';
 
 /**
  * Tracks which action is currently in-flight, or null when idle.
  * 'fetching' — initial GET /bot/status on mount
- * 'starting' — POST /bot/start in-flight
- * 'stopping' — POST /bot/stop in-flight
+ * 'starting' — POST /bot/bidding/start in-flight
+ * 'stopping' — POST /bot/bidding/stop in-flight
  */
 type BotAction = 'fetching' | 'starting' | 'stopping' | null;
 
@@ -14,13 +18,17 @@ interface UseBotState {
   status: BotStatus | null;
   /** True when the bot is considered active per server state */
   isBidding: boolean;
+  /** True only after a status or action response has established server state. */
+  hasResolvedStatus: boolean;
   /** Which action is currently in-flight (null = idle) */
   action: BotAction;
   /** Error message if the last call failed */
   error: string | null;
-  /** Call POST /bot/start */
+  /** Latest complete state returned by a start/stop action. */
+  biddingState: BiddingControlData | null;
+  /** Call POST /bot/bidding/start */
   startBot: () => Promise<void>;
-  /** Call POST /bot/stop */
+  /** Call POST /bot/bidding/stop */
   stopBot: () => Promise<void>;
 }
 
@@ -42,6 +50,8 @@ interface UseBotState {
 export function useBot(): UseBotState {
   const [status, setStatus] = useState<BotStatus | null>(null);
   const [isBidding, setIsBidding] = useState(false);
+  const [hasResolvedStatus, setHasResolvedStatus] = useState(false);
+  const [biddingState, setBiddingState] = useState<BiddingControlData | null>(null);
   const [action, setAction] = useState<BotAction>('fetching');
   const [error, setError] = useState<string | null>(null);
 
@@ -51,14 +61,22 @@ export function useBot(): UseBotState {
 
     const fetchStatus = async () => {
       try {
-        const botStatus = await botService.getStatus();
+        const currentState = await botService.getStatus();
         if (cancelled) return;
-        setStatus(botStatus);
-        setIsBidding(ACTIVE_STATUSES.has(botStatus.toLowerCase()));
-      } catch {
-        // Non-fatal: if status fetch fails (e.g. network error), default to stopped
-        // so the user can still attempt to start the bot.
-        if (!cancelled) setIsBidding(false);
+        setBiddingState(currentState);
+        setStatus(currentState.botStatus);
+        setIsBidding(currentState.biddingActive);
+        setHasResolvedStatus(true);
+        setError(null);
+      } catch (statusError) {
+        if (!cancelled) {
+          setIsBidding(false);
+          setError(
+            statusError instanceof Error
+              ? statusError.message
+              : 'Failed to load bidding status',
+          );
+        }
       } finally {
         if (!cancelled) setAction(null);
       }
@@ -74,9 +92,11 @@ export function useBot(): UseBotState {
     setError(null);
 
     try {
-      const botStatus = await botService.start();
-      setStatus(botStatus);
-      setIsBidding(true);
+      const nextState = await botService.startBidding();
+      setBiddingState(nextState);
+      setStatus(nextState.botStatus);
+      setIsBidding(nextState.biddingActive);
+      setHasResolvedStatus(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start the bidding bot');
     } finally {
@@ -90,9 +110,11 @@ export function useBot(): UseBotState {
     setError(null);
 
     try {
-      const botStatus = await botService.stop();
-      setStatus(botStatus);
-      setIsBidding(false);
+      const nextState = await botService.stopBidding();
+      setBiddingState(nextState);
+      setStatus(nextState.botStatus);
+      setIsBidding(nextState.biddingActive);
+      setHasResolvedStatus(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stop the bidding bot');
     } finally {
@@ -100,5 +122,14 @@ export function useBot(): UseBotState {
     }
   }, []);
 
-  return { status, isBidding, action, error, startBot, stopBot };
+  return {
+    status,
+    isBidding,
+    hasResolvedStatus,
+    action,
+    error,
+    biddingState,
+    startBot,
+    stopBot,
+  };
 }

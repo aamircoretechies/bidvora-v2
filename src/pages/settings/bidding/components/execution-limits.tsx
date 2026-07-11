@@ -13,17 +13,17 @@ const ExecutionLimits = ({ data, onChange }: { data?: any, onChange?: (field: st
           <div className="grid gap-1.5">
             <Label className="text-sm font-semibold text-foreground">Daily Bid Limit</Label>
             <p className="text-xs text-secondary-foreground mb-4">Max total bids per day.</p>
-            <Input type="number" value={data?.dailyBidLimit || ''} onChange={(e) => onChange?.('dailyBidLimit', parseInt(e.target.value) || 0)} className="w-full" />
+            <Input type="number" value={data?.dailyBidLimit ?? ''} onChange={(e) => onChange?.('dailyBidLimit', parseInt(e.target.value) || 0)} className="w-full" />
           </div>
           <div className="grid gap-1.5">
             <Label className="text-sm font-semibold text-foreground">Bids Per Cycle</Label>
             <p className="text-xs text-secondary-foreground mb-4">Max bids every minute.</p>
-            <Input type="number" value={data?.maxBidsPerCycle || ''} onChange={(e) => onChange?.('maxBidsPerCycle', parseInt(e.target.value) || 0)} className="w-full" />
+            <Input type="number" value={data?.maxBidsPerCycle ?? ''} onChange={(e) => onChange?.('maxBidsPerCycle', parseInt(e.target.value) || 0)} className="w-full" />
           </div>
           <div className="grid gap-1.5">
             <Label className="text-sm font-semibold text-foreground">Max Existing Bids</Label>
             <p className="text-xs text-secondary-foreground mb-4">Skip if project has &gt; X bids.</p>
-            <Input type="number" value={data?.maxExistingBids || ''} onChange={(e) => onChange?.('maxExistingBids', parseInt(e.target.value) || 0)} className="w-full" />
+            <Input type="number" value={data?.maxExistingBids ?? ''} onChange={(e) => onChange?.('maxExistingBids', parseInt(e.target.value) || 0)} className="w-full" />
           </div>
         </div>
       </CardContent>

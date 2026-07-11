@@ -6,8 +6,12 @@ import {
   PaymentMethods,
   Upgrade,
 } from '../components';
+import { useSubscription } from '@/hooks/use-subscription';
 
 export function SubscriptionContent() {
+  const { subscription, loading } = useSubscription();
+  const checkoutPending = Boolean(subscription?.checkoutPendingAt);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-7.5">
       <div className="col-span-2">
@@ -16,12 +20,14 @@ export function SubscriptionContent() {
       <div className="col-span-2">
         <CompanyProfile />
       </div>
-      <div className="col-span-2 lg:col-span-1 flex">
+      <div className={`col-span-2 flex ${checkoutPending ? '' : 'lg:col-span-1'}`}>
         <LatestPayment />
       </div>
-      <div className="col-span-2 lg:col-span-1 flex">
-        <NextPayment />
-      </div>
+      {!loading && !checkoutPending && (
+        <div className="col-span-2 lg:col-span-1 flex">
+          <NextPayment />
+        </div>
+      )}
      {/*  <div className="col-span-2 lg:col-span-1 flex">
         <PaymentMethods />
       </div> */}

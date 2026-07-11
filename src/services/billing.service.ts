@@ -42,10 +42,7 @@ export interface SubscriptionResponse {
   };
 }
 
-const subscriptionResponseSchema = z.object({
-  success: z.literal(true),
-  data: z.object({
-    subscription: z.object({
+const subscriptionSchema = z.object({
       plan: z.string().min(1),
       status: z.enum(['ACTIVE', 'TRIAL', 'SUSPENDED', 'CANCELLED', 'NONE']),
       subscriptionState: z.enum([
@@ -69,9 +66,51 @@ const subscriptionResponseSchema = z.object({
       pendingPlan: z.string().nullable(),
       planChangeEffectiveAt: z.string().nullable(),
       checkoutPendingAt: z.string().nullable(),
-    }),
+});
+
+const subscriptionResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    subscription: subscriptionSchema,
   }),
 });
+
+const cancelSubscriptionResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    subscription: subscriptionSchema,
+    cancelAtPeriodEnd: z.boolean().optional(),
+    effectiveAt: z.string().nullable().optional(),
+    alreadyCancelled: z.boolean().optional(),
+  }),
+  meta: z.record(z.string(), z.unknown()).optional(),
+});
+
+const subscribeResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    subscription: subscriptionSchema,
+    checkoutUrl: z.string().url().nullable().optional(),
+  }),
+  meta: z.record(z.string(), z.unknown()).optional(),
+});
+
+const confirmCheckoutResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    subscription: subscriptionSchema,
+  }),
+  meta: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type CancelSubscriptionResult = z.infer<
+  typeof cancelSubscriptionResponseSchema
+>['data'];
+
+export type SubscribeResult = z.infer<typeof subscribeResponseSchema>['data'];
+export type ConfirmCheckoutResult = z.infer<
+  typeof confirmCheckoutResponseSchema
+>['data'];
 
 export interface BillingPlan {
   plan: 'STARTER' | 'PRO';
@@ -163,6 +202,70 @@ interface BillingHistoryResponse {
 // ─── Billing Service ──────────────────────────────────────────────────────────
 
 export const billingService = {
+  /**
+   * POST /billing/confirm
+   * Confirms a paid checkout session after the provider success redirect.
+   */
+  async confirmCheckout(sessionId: string): Promise<ConfirmCheckoutResult> {
+    const normalizedSessionId = sessionId.trim();
+    if (!normalizedSessionId) throw new Error('Checkout session ID is required');
+
+    const response = await api.post('/billing/confirm', {
+      sessionId: normalizedSessionId,
+    });
+    const parsed = confirmCheckoutResponseSchema.safeParse(response);
+
+    if (!parsed.success) {
+      throw new Error('The checkout confirmation response has an invalid schema');
+    }
+
+    return parsed.data.data;
+  },
+
+  /**
+   * POST /billing/subscribe
+   * Creates or resumes checkout, or schedules a plan change.
+   */
+  async subscribe(
+    plan: 'STARTER' | 'PRO',
+    idempotencyKey: string,
+  ): Promise<SubscribeResult> {
+    const response = await api.post(
+      '/billing/subscribe',
+      { plan },
+      { headers: { 'Idempotency-Key': idempotencyKey } },
+    );
+    const parsed = subscribeResponseSchema.safeParse(response);
+
+    if (!parsed.success) {
+      throw new Error('The subscription checkout response has an invalid schema');
+    }
+
+    return parsed.data.data;
+  },
+
+  /**
+   * POST /billing/cancel
+   * Requests an idempotent provider-side subscription cancellation.
+   */
+  async cancelSubscription(
+    cancelAtPeriodEnd: boolean,
+    idempotencyKey: string,
+  ): Promise<CancelSubscriptionResult> {
+    const response = await api.post(
+      '/billing/cancel',
+      { cancelAtPeriodEnd },
+      { headers: { 'Idempotency-Key': idempotencyKey } },
+    );
+    const parsed = cancelSubscriptionResponseSchema.safeParse(response);
+
+    if (!parsed.success) {
+      throw new Error('The subscription cancellation response has an invalid schema');
+    }
+
+    return parsed.data.data;
+  },
+
   /**
    * GET /billing/subscription
    * Returns the authenticated user's plan, account status, and provider subscription state.

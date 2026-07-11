@@ -1,8 +1,28 @@
-import { AlertCircle, Clock3, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { AlertCircle, Clock3, Loader2, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/auth/context/auth-context';
 import { useBillingHistory } from '@/hooks/use-billing-history';
+import { useCancelSubscription } from '@/hooks/use-cancel-subscription';
+import { useConfirmCheckout } from '@/hooks/use-confirm-checkout';
+import { useSubscribe } from '@/hooks/use-subscribe';
 import { useSubscription } from '@/hooks/use-subscription';
-import type { SubscriptionStateValue } from '@/services/billing.service';
+import type {
+  CancelSubscriptionResult,
+  SubscriptionStateValue,
+} from '@/services/billing.service';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,8 +79,22 @@ function formatCurrency(currency: string | null) {
   return currency?.toUpperCase() || 'Not available';
 }
 
+function clearCheckoutIdentifiers() {
+  sessionStorage.removeItem('billing_checkout_session_id');
+  localStorage.removeItem('billing_checkout_session_id');
+  sessionStorage.removeItem('register_checkout_subscription_id');
+  localStorage.removeItem('register_checkout_subscription_id');
+}
+
 const CompanyProfile = () => {
+  const { confirmBilling } = useAuth();
   const { subscription, loading, error, refetch } = useSubscription();
+  const cancelSubscription = useCancelSubscription();
+  const confirmCheckout = useConfirmCheckout();
+  const subscribe = useSubscribe();
+  const [cancellation, setCancellation] =
+    useState<CancelSubscriptionResult | null>(null);
+  const [isRecoveringCheckout, setIsRecoveringCheckout] = useState(false);
   const { data: latestPaymentHistory } = useBillingHistory({
     page: 1,
     limit: 1,
@@ -112,14 +146,119 @@ const CompanyProfile = () => {
     null;
   const periodAvailable =
     Boolean(periodStart) || Boolean(subscription.currentPeriodEnd);
+  const checkoutPending = Boolean(subscription.checkoutPendingAt);
   const statistics = [
     { value: humanize(subscription.status), label: 'Account status' },
     { value: providerLabel(subscription.billingProvider), label: 'Provider' },
     { value: subscription.billingCountry?.toUpperCase() || 'Not available', label: 'Billing country' },
     { value: formatCurrency(subscription.billingCurrency), label: 'Currency' },
     { value: humanize(subscription.planChangePolicy), label: 'Plan changes' },
-    { value: formatDate(subscription.currentPeriodEnd), label: 'Period ends' },
+    ...(!checkoutPending
+      ? [{ value: formatDate(subscription.currentPeriodEnd), label: 'Period ends' }]
+      : []),
   ];
+  const canCancel =
+    subscription.subscriptionState !== 'CANCELLED' &&
+    subscription.status !== 'CANCELLED' &&
+    !checkoutPending &&
+    !cancellation;
+
+  const handleCompleteCheckout = async () => {
+    const plan = subscription.plan.toUpperCase();
+    if (plan !== 'STARTER' && plan !== 'PRO') {
+      toast.error('This plan cannot be used to resume checkout.');
+      return;
+    }
+
+    try {
+      const result = await subscribe.mutateAsync(plan);
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+        return;
+      }
+
+      toast.success('Subscription is already up to date.');
+      refetch();
+    } catch (subscribeError) {
+      const apiError = subscribeError as Error & {
+        status?: number;
+        code?: string;
+      };
+      const checkoutAlreadyPaid =
+        apiError.status === 409 || apiError.code === 'CONFLICT';
+
+      if (checkoutAlreadyPaid) {
+        setIsRecoveringCheckout(true);
+        try {
+          const sessionId =
+            sessionStorage.getItem('billing_checkout_session_id') ||
+            localStorage.getItem('billing_checkout_session_id');
+          if (sessionId) {
+            await confirmCheckout.mutateAsync(sessionId);
+            clearCheckoutIdentifiers();
+            toast.success('Payment confirmed and subscription activated.');
+            refetch();
+            return;
+          }
+
+          const subscriptionId =
+            sessionStorage.getItem('register_checkout_subscription_id') ||
+            localStorage.getItem('register_checkout_subscription_id');
+          if (subscriptionId) {
+            const currentUser = await confirmBilling(
+              subscriptionId,
+              `confirm-recovery-${subscriptionId}`,
+            );
+            if (!currentUser.billingPending) {
+              clearCheckoutIdentifiers();
+              toast.success('Payment confirmed and subscription activated.');
+              refetch();
+              return;
+            }
+          }
+
+          throw new Error(
+            'Payment is complete, but the checkout confirmation ID is unavailable. Please reopen the payment success URL or contact support.',
+          );
+        } catch (confirmationError) {
+          toast.error(
+            confirmationError instanceof Error
+              ? confirmationError.message
+              : 'Failed to confirm the completed checkout',
+          );
+          return;
+        } finally {
+          setIsRecoveringCheckout(false);
+        }
+      }
+
+      toast.error(
+        subscribeError instanceof Error
+          ? subscribeError.message
+          : 'Failed to resume checkout',
+      );
+    }
+  };
+
+  const handleCancel = async () => {
+    try {
+      const result = await cancelSubscription.mutateAsync(true);
+      setCancellation(result);
+      toast.success(
+        result.alreadyCancelled
+          ? 'Subscription is already cancelled.'
+          : result.effectiveAt
+            ? `Cancellation scheduled for ${formatDate(result.effectiveAt)}.`
+            : 'Cancellation request submitted.',
+      );
+    } catch (cancelError) {
+      toast.error(
+        cancelError instanceof Error
+          ? cancelError.message
+          : 'Failed to cancel subscription',
+      );
+    }
+  };
 
   return (
     <Card>
@@ -148,7 +287,9 @@ const CompanyProfile = () => {
                   </Badge>
                 </div>
                 <p className="text-sm text-secondary-foreground">
-                  {periodAvailable ? (
+                  {checkoutPending ? (
+                    'Checkout must be completed before the billing period begins.'
+                  ) : periodAvailable ? (
                     <>
                       Current billing period:{' '}
                       <span className="font-medium text-foreground">
@@ -161,10 +302,71 @@ const CompanyProfile = () => {
                   )}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={refetch}>
-                <RefreshCw />
-                Refresh
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {checkoutPending ? (
+                  <Button
+                    size="sm"
+                    onClick={handleCompleteCheckout}
+                    disabled={
+                      subscribe.isPending ||
+                      confirmCheckout.isPending ||
+                      isRecoveringCheckout
+                    }
+                  >
+                    {(subscribe.isPending ||
+                      confirmCheckout.isPending ||
+                      isRecoveringCheckout) && (
+                      <Loader2 className="animate-spin" />
+                    )}
+                    Continue Checkout
+                  </Button>
+                ) : (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={!canCancel || cancelSubscription.isPending}
+                      >
+                        {cancelSubscription.isPending && (
+                          <Loader2 className="animate-spin" />
+                        )}
+                        {cancellation ? 'Cancellation Requested' : 'Cancel Plan'}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel your subscription?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Your subscription will remain available until the end of the
+                          current billing period. The payment provider will finalize the
+                          cancellation, so the status may take a short time to update.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={cancelSubscription.isPending}>
+                          Keep Plan
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          disabled={cancelSubscription.isPending}
+                          onClick={handleCancel}
+                        >
+                          {cancelSubscription.isPending && (
+                            <Loader2 className="animate-spin" />
+                          )}
+                          Confirm Cancellation
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+
+                <Button variant="outline" size="sm" onClick={refetch}>
+                  <RefreshCw />
+                  Refresh
+                </Button>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-stretch gap-3 lg:gap-5">
@@ -192,6 +394,19 @@ const CompanyProfile = () => {
               </Alert>
             )}
 
+            {cancellation && !cancellation.alreadyCancelled && (
+              <Alert variant="warning" appearance="light">
+                <AlertIcon><Clock3 /></AlertIcon>
+                <AlertTitle>
+                  Cancellation requested
+                  {cancellation.effectiveAt
+                    ? ` for ${formatDate(cancellation.effectiveAt)}`
+                    : ''}
+                  . The provider webhook will update the final subscription status.
+                </AlertTitle>
+              </Alert>
+            )}
+
             {subscription.pendingPlan && (
               <div className="flex items-start gap-2 rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                 <Clock3 className="mt-0.5 size-3.5 shrink-0 text-warning" />
@@ -205,10 +420,11 @@ const CompanyProfile = () => {
             )}
 
             {subscription.checkoutPendingAt && (
-              <div className="flex items-start gap-2 rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">
                 <Clock3 className="mt-0.5 size-3.5 shrink-0 text-warning" />
                 <span>
-                  Checkout has been pending since {formatDate(subscription.checkoutPendingAt)}.
+                  Checkout was left incomplete on {formatDate(subscription.checkoutPendingAt)}.
+                  Complete it to activate your billing period and subscription benefits.
                 </span>
               </div>
             )}

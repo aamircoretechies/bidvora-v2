@@ -1,160 +1,215 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Loader2, RefreshCw, Save } from 'lucide-react';
+import { RiCheckboxCircleFill, RiCloseCircleFill } from '@remixicon/react';
+import { toast } from 'sonner';
+import { useApiSettings } from '@/hooks/use-api-settings';
+import type { UpdateSettingsPayload } from '@/services/settings.service';
+import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Save, Loader2 } from 'lucide-react';
-import { settingsService } from '@/services/settings.service';
-import { toast } from 'sonner';
-import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
-import { RiCheckboxCircleFill, RiCloseCircleFill } from '@remixicon/react';
+
+interface AiSettingsForm {
+  systemPrompt: string;
+  portfolioItems: string;
+  autoReplyDelay: number;
+}
 
 const AiConfiguration = () => {
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [portfolioItems, setPortfolioItems] = useState('');
-  const [autoReplyDelay, setAutoReplyDelay] = useState(10);
-  const [fullConfig, setFullConfig] = useState<any>(null);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const {
+    settings,
+    isLoading,
+    loadError,
+    refetch,
+    updateSettings,
+    isSaving,
+  } = useApiSettings();
+  const [form, setForm] = useState<AiSettingsForm>({
+    systemPrompt: '',
+    portfolioItems: '',
+    autoReplyDelay: 0,
+  });
+  const [dirtyFields, setDirtyFields] = useState<Set<keyof AiSettingsForm>>(
+    new Set(),
+  );
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await settingsService.getSettings();
-        if (response.data?.botConfig) {
-          const config = response.data.botConfig;
-          setFullConfig({ ...response.data.authConfig, ...response.data.botConfig });
-          setSystemPrompt(config.systemPrompt || '');
-          setPortfolioItems(config.portfolioItems || '');
-          setAutoReplyDelay(config.autoReplyDelay ?? 10);
-        }
-      } catch (err) {
-        toast.error('Failed to load AI configuration');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchSettings();
-  }, []);
+    if (!settings || dirtyFields.size > 0) return;
+
+    setForm({
+      systemPrompt: settings.botConfig.systemPrompt ?? '',
+      portfolioItems: settings.botConfig.portfolioItems ?? '',
+      autoReplyDelay: settings.botConfig.autoReplyDelay ?? 0,
+    });
+  }, [dirtyFields.size, settings]);
+
+  const updateField = <Field extends keyof AiSettingsForm>(
+    field: Field,
+    value: AiSettingsForm[Field],
+  ) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setDirtyFields((current) => {
+      const next = new Set(current);
+      next.add(field);
+      return next;
+    });
+  };
 
   const handleSave = async () => {
-    setIsSaving(true);
+    if (dirtyFields.size === 0) {
+      toast.info('No AI configuration changes to save');
+      return;
+    }
+
+    const payload: UpdateSettingsPayload = {};
+    dirtyFields.forEach((field) => {
+      Object.assign(payload, { [field]: form[field] });
+    });
+
     try {
-      const {
-        accessToken,
-        refreshToken,
-        expiresAt,
-        isFreelancerConnected,
-        key,
-        id,
-        ...payload
-      } = {
-        ...fullConfig,
-        systemPrompt,
-        portfolioItems,
-        autoReplyDelay,
-      };
-
-      await settingsService.updateSettings(payload);
-
+      const response = await updateSettings(payload);
+      setDirtyFields(new Set());
       toast.custom(
-        (t) => (
-          <Alert variant="mono" icon="success" close={false} onClose={() => toast.dismiss(t)}>
+        (toastId) => (
+          <Alert
+            variant="mono"
+            icon="success"
+            close={false}
+            onClose={() => toast.dismiss(toastId)}
+          >
             <AlertIcon><RiCheckboxCircleFill /></AlertIcon>
-            <AlertTitle>Configuration saved successfully</AlertTitle>
+            <AlertTitle>
+              {(response.meta?.message as string | undefined) ||
+                'Configuration saved successfully'}
+            </AlertTitle>
           </Alert>
         ),
-        { position: 'top-center' }
+        { position: 'top-center' },
       );
-    } catch (err: any) {
+    } catch (error) {
       toast.custom(
-        (t) => (
-          <Alert variant="mono" icon="destructive" close={false} onClose={() => toast.dismiss(t)}>
+        (toastId) => (
+          <Alert
+            variant="mono"
+            icon="destructive"
+            close={false}
+            onClose={() => toast.dismiss(toastId)}
+          >
             <AlertIcon><RiCloseCircleFill /></AlertIcon>
-            <AlertTitle>{err.message || 'Failed to save configuration'}</AlertTitle>
+            <AlertTitle>
+              {error instanceof Error
+                ? error.message
+                : 'Failed to save configuration'}
+            </AlertTitle>
           </Alert>
         ),
-        { position: 'top-center' }
+        { position: 'top-center' },
       );
-    } finally {
-      setIsSaving(false);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  if (loadError || !settings) {
+    return (
+      <Card className="h-full">
+        <CardContent className="p-5">
+          <Alert variant="destructive" appearance="light">
+            <AlertIcon><RiCloseCircleFill /></AlertIcon>
+            <AlertTitle>
+              {loadError instanceof Error
+                ? loadError.message
+                : 'Failed to load AI configuration'}
+            </AlertTitle>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw />
+              Try again
+            </Button>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="flex flex-col h-full">
-      <CardHeader className="bg-transparent rounded-t-xl px-5 py-3 flex-row items-center gap-2">
-        <CardTitle className="text-foreground text-base font-semibold">AI Configuration</CardTitle>
+    <Card className="flex h-full flex-col">
+      <CardHeader className="flex-row items-center gap-2 rounded-t-xl bg-transparent px-5 py-3">
+        <CardTitle className="text-base font-semibold text-foreground">
+          AI Configuration
+        </CardTitle>
       </CardHeader>
-      <CardContent className="p-5 flex flex-col gap-6 flex-1">
-        {/* System Prompt */}
+      <CardContent className="flex flex-1 flex-col gap-6 p-5">
         <div className="grid gap-1.5">
-          <Label className="text-sm font-semibold text-foreground">
+          <Label htmlFor="system-prompt" className="text-sm font-semibold text-foreground">
             System Prompt{' '}
-            <span className="text-destructive font-normal">Important:</span>
-            <span className="text-secondary-foreground font-normal text-xs ml-1">
+            <span className="font-normal text-destructive">Important:</span>
+            <span className="ml-1 text-xs font-normal text-secondary-foreground">
               Only provide instructions to write a good copy.
             </span>
           </Label>
           <Textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            disabled={isLoading}
+            id="system-prompt"
+            value={form.systemPrompt}
+            onChange={(event) => updateField('systemPrompt', event.target.value)}
+            disabled={isSaving}
             placeholder="Core Techies – Structured Technical Snapshot Bid..."
             rows={8}
-            className="text-sm resize-none font-mono"
+            className="resize-none font-mono text-sm"
           />
         </div>
 
-        {/* Portfolio / Experience */}
         <div className="grid gap-1.5">
-          <Label className="text-sm font-semibold text-foreground">Portfolio / Experience</Label>
+          <Label htmlFor="portfolio-items" className="text-sm font-semibold text-foreground">
+            Portfolio / Experience
+          </Label>
           <p className="text-xs text-secondary-foreground">
             List your past work, skills, or links here. The AI will use this to write the proposal.
           </p>
           <Textarea
-            value={portfolioItems}
-            onChange={(e) => setPortfolioItems(e.target.value)}
-            disabled={isLoading}
+            id="portfolio-items"
+            value={form.portfolioItems}
+            onChange={(event) => updateField('portfolioItems', event.target.value)}
+            disabled={isSaving}
             placeholder="List your past work, skills, or links here..."
             rows={5}
-            className="text-sm resize-none font-mono"
+            className="resize-none font-mono text-sm"
           />
         </div>
 
-        {/* Auto-Reply Delay */}
         <div className="grid gap-1.5">
-          <Label className="text-sm font-semibold text-foreground">
+          <Label htmlFor="auto-reply-delay" className="text-sm font-semibold text-foreground">
             Auto-Reply Random Delay (Seconds) for Chat Agent
           </Label>
           <Input
+            id="auto-reply-delay"
             type="number"
-            value={autoReplyDelay}
-            onChange={(e) => setAutoReplyDelay(Number(e.target.value))}
-            disabled={isLoading}
-            className="text-sm w-full md:w-40"
+            min={0}
+            value={form.autoReplyDelay}
+            onChange={(event) =>
+              updateField('autoReplyDelay', Math.max(0, Number(event.target.value) || 0))
+            }
+            disabled={isSaving}
+            className="w-full text-sm md:w-40"
           />
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end p-5 pt-0 border-0">
+      <CardFooter className="flex justify-end border-0 p-5 pt-0">
         <Button
           variant="primary"
           size="lg"
-          className="gap-2 w-full"
+          className="w-full gap-2"
           onClick={handleSave}
-          disabled={isLoading || isSaving}
+          disabled={isSaving || dirtyFields.size === 0}
         >
           {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           Save Configuration

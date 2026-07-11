@@ -16,10 +16,19 @@ import { Card } from '@/components/ui/card';
 import { Gavel, MessageCircle } from 'lucide-react';
 
 function BidBanner() {
-  const { startBot, stopBot, isBidding, action, error } = useBot();
+  const {
+    startBot,
+    stopBot,
+    isBidding,
+    hasResolvedStatus,
+    action,
+    error,
+    biddingState,
+  } = useBot();
 
   const isFetching = action === 'fetching';
   const isLoading = action !== null; // covers fetching + starting + stopping
+  const isEligible = biddingState?.biddingEligible ?? true;
 
   return (
     <Fragment>
@@ -73,6 +82,12 @@ function BidBanner() {
               Let the Bidvora's neural engine place bids on your behalf.
             </p>
 
+            {!isFetching && !isEligible && (
+              <p className="mt-2 rounded-lg bg-red-500/30 px-3 py-1.5 text-xs text-white/90">
+                Automated bidding is not available for this account.
+              </p>
+            )}
+
             {/* Error feedback */}
             {error && (
               <p className="mt-2 text-xs text-white/80 bg-red-500/30 rounded-lg px-3 py-1.5">
@@ -83,7 +98,11 @@ function BidBanner() {
             <div className="mt-4">
               <Button
                 onClick={isBidding ? stopBot : startBot}
-                disabled={isLoading}
+                disabled={
+                  isLoading ||
+                  !hasResolvedStatus ||
+                  (!isBidding && !isEligible)
+                }
                 className={
                   isBidding
                     ? 'rounded-full px-6 bg-white text-orange-500 hover:bg-white/90 border-0'
@@ -94,7 +113,11 @@ function BidBanner() {
                   {isLoading && (
                     <LoaderCircle className="w-4 h-4 animate-spin" />
                   )}
-                  {isBidding ? 'Stop Bidding' : 'Start Bidding'}
+                  {isBidding
+                    ? 'Stop Bidding'
+                    : isEligible
+                      ? 'Start Bidding'
+                      : 'Bidding Unavailable'}
                 </span>
               </Button>
             </div>
@@ -138,10 +161,19 @@ function BidBanner() {
   );
 }
 function ChatBanner() {
-  const { startChatBot, stopChatBot, isChatBotActive, action, error } = useChatBot();
+  const {
+    startChatBot,
+    stopChatBot,
+    isChatBotActive,
+    hasResolvedStatus,
+    action,
+    error,
+    agentState,
+  } = useChatBot();
 
   const isFetching = action === 'fetching';
   const isLoading = action !== null;
+  const isEligible = agentState?.chatEligible ?? true;
 
   return (
     <Fragment>
@@ -191,6 +223,12 @@ function ChatBanner() {
               Let the Bidvora's chat agent handle your customer chats.
             </p>
 
+            {!isFetching && !isEligible && (
+              <p className="mt-2 rounded-lg bg-red-500/30 px-3 py-1.5 text-xs text-white/90">
+                The chat agent is not available for this account.
+              </p>
+            )}
+
             {/* Error feedback */}
             {error && (
               <p className="mt-2 text-xs text-white/80 bg-red-500/30 rounded-lg px-3 py-1.5">
@@ -201,7 +239,11 @@ function ChatBanner() {
             <div className="mt-4">
               <Button
                 onClick={isChatBotActive ? stopChatBot : startChatBot}
-                disabled={isLoading}
+                disabled={
+                  isLoading ||
+                  !hasResolvedStatus ||
+                  (!isChatBotActive && !isEligible)
+                }
                 className={
                   isChatBotActive
                     ? 'rounded-full px-6 bg-white text-violet-600 hover:bg-white/90 border-0'
@@ -212,7 +254,11 @@ function ChatBanner() {
                   {isLoading && (
                     <LoaderCircle className="w-4 h-4 animate-spin" />
                   )}
-                  {isChatBotActive ? 'Stop Agent' : 'Start Agent'}
+                  {isChatBotActive
+                    ? 'Stop Agent'
+                    : isEligible
+                      ? 'Start Agent'
+                      : 'Agent Unavailable'}
                 </span>
               </Button>
             </div>

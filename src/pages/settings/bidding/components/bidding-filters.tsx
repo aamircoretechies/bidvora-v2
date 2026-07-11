@@ -65,17 +65,17 @@ const BiddingFilters = ({ data, onChange }: { data?: any, onChange?: (field: str
           <div className="grid gap-1.5">
             <Label className="text-sm font-semibold text-foreground">Fixed Budget Range (Total)</Label>
             <div className="flex items-center gap-2">
-              <Input type="number" value={data?.minBudget || ''} onChange={(e) => onChange?.('minBudget', parseInt(e.target.value) || 0)} className="text-sm" />
+              <Input type="number" value={data?.minBudget ?? ''} onChange={(e) => onChange?.('minBudget', parseInt(e.target.value) || 0)} className="text-sm" />
               <span className="text-secondary-foreground text-sm shrink-0">–</span>
-              <Input type="number" value={data?.maxBudget || ''} onChange={(e) => onChange?.('maxBudget', parseInt(e.target.value) || 0)} className="text-sm" />
+              <Input type="number" value={data?.maxBudget ?? ''} onChange={(e) => onChange?.('maxBudget', parseInt(e.target.value) || 0)} className="text-sm" />
             </div>
           </div>
           <div className="grid gap-1.5">
             <Label className="text-sm font-semibold text-foreground">Hourly Rate Range</Label>
             <div className="flex items-center gap-2">
-              <Input type="number" value={data?.minHourlyRate || ''} onChange={(e) => onChange?.('minHourlyRate', parseInt(e.target.value) || 0)} className="text-sm" />
+              <Input type="number" value={data?.minHourlyRate ?? ''} onChange={(e) => onChange?.('minHourlyRate', parseInt(e.target.value) || 0)} className="text-sm" />
               <span className="text-secondary-foreground text-sm shrink-0">–</span>
-              <Input type="number" value={data?.maxHourlyRate || ''} onChange={(e) => onChange?.('maxHourlyRate', parseInt(e.target.value) || 0)} className="text-sm" />
+              <Input type="number" value={data?.maxHourlyRate ?? ''} onChange={(e) => onChange?.('maxHourlyRate', parseInt(e.target.value) || 0)} className="text-sm" />
             </div>
           </div>
         </div>
@@ -85,12 +85,12 @@ const BiddingFilters = ({ data, onChange }: { data?: any, onChange?: (field: str
           <div className="grid gap-1.5">
             <Label className="text-sm font-semibold text-foreground">Bid Strategy (%)</Label>
             <p className="text-xs text-secondary-foreground">Percentage of average bid to undercut (e.g. 90).</p>
-            <Input type="number" value={data?.bidFactorPercent || ''} onChange={(e) => onChange?.('bidFactorPercent', parseInt(e.target.value) || 0)} className="text-sm" />
+            <Input type="number" value={data?.bidFactorPercent ?? ''} onChange={(e) => onChange?.('bidFactorPercent', parseInt(e.target.value) || 0)} className="text-sm" />
           </div>
           <div className="grid gap-1.5">
             <Label className="text-sm font-semibold text-foreground">Your Standard Hourly Price</Label>
             <p className="text-xs text-secondary-foreground">Used to calculate bid amount.</p>
-            <Input type="number" value={data?.hourlyPrice || ''} onChange={(e) => onChange?.('hourlyPrice', parseInt(e.target.value) || 0)} className="text-sm" />
+            <Input type="number" value={data?.hourlyPrice ?? ''} onChange={(e) => onChange?.('hourlyPrice', parseInt(e.target.value) || 0)} className="text-sm" />
           </div>
         </div>
 
