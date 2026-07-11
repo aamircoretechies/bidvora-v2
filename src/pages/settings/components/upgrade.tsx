@@ -1,6 +1,5 @@
 import { Fragment } from 'react';
-import { HexagonBadge } from '@/partials/common/hexagon-badge';
-import { ScrollText } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import { Link } from 'react-router';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { Badge } from '@/components/ui/badge';
@@ -43,19 +42,22 @@ const Upgrade = () => {
         `}
       </style>
 
-      <Card className="rounded-xl">
-        <div className="flex items-center justify-between grow gap-5 p-5 rtl:bg-[center_left_-8rem] bg-[center_right_-8rem] bg-no-repeat bg-[length:700px] upgrade-bg">
+      <Card className="rounded-xl border-amber-200/80 ring-1 ring-amber-100/70 dark:border-amber-700/40 dark:ring-amber-800/30">
+        <div className="flex grow flex-col items-start justify-between gap-5 bg-[center_right_-8rem] bg-no-repeat bg-[length:700px] p-5 sm:flex-row sm:items-center rtl:bg-[center_left_-8rem] upgrade-bg">
           <div className="flex items-center gap-4">
-            <HexagonBadge
-              stroke="stroke-blue-200 dark:stroke-blue-950"
-              fill="fill-blue-50 dark:fill-blue-950/30"
-              size="size-[50px]"
-              badge={<ScrollText className="text-xl text-blue-400" />}
-            />
+            <div className="relative flex size-[54px] shrink-0 items-center justify-center">
+              <div className="absolute inset-1 rounded-2xl bg-amber-400/35 blur-md dark:bg-amber-300/25" />
+              <div className="relative flex size-[50px] items-center justify-center rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-200 shadow-[0_8px_24px_-8px_rgba(245,158,11,0.75)] dark:border-amber-500/50 dark:from-amber-950 dark:via-amber-900 dark:to-yellow-950">
+                <Crown
+                  className="size-6 fill-amber-400 text-amber-600 drop-shadow-[0_2px_4px_rgba(245,158,11,0.45)] dark:fill-amber-500 dark:text-amber-300"
+                  strokeWidth={1.8}
+                />
+              </div>
+            </div>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <Link
-                  to="#"
+                  to="/settings/plans"
                   className="text-base font-medium text-mono hover:text-primary-active"
                 >
                   Upgrade your plan to{' '}
@@ -79,16 +81,11 @@ const Upgrade = () => {
               </div>
             </div>
           </div>
-          {/*  <div className="flex items-center gap-1.5 shrink-0">
-            {isTrial && (
-              <Button variant="ghost">
-                <Link to="#">Cancel Trial</Link>
-              </Button>
-            )}
-            <Button variant="mono">
-              <Link to="#">Upgrade Now</Link>
+          <div className="ms-auto shrink-0">
+            <Button variant="mono" asChild>
+              <Link to="/settings/plans">Upgrade Plan</Link>
             </Button>
-          </div> */}
+          </div>
         </div>
       </Card>
     </Fragment>

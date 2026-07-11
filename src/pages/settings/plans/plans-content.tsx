@@ -1,8 +1,12 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '@/auth/context/auth-context';
 import { usePlans } from '@/hooks/use-plans';
-import { BillingPlan } from '@/services/billing.service';
+import { useSubscribe } from '@/hooks/use-subscribe';
+import { useSubscription } from '@/hooks/use-subscription';
+import type { BillingPlan } from '@/services/billing.service';
+import { toAbsoluteUrl } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
 import { AlertCircle, Check, Loader2, Rocket, Sparkles } from 'lucide-react';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
@@ -17,33 +21,7 @@ import {
   CardTitle,
   CardToolbar,
 } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const COUNTRIES = [
-  {
-    value: 'IN',
-    label: 'India',
-    currency: 'INR',
-    provider: 'Razorpay',
-    logo: '/media/brand-logos/Razorpay-full.svg',
-  },
-  {
-    value: 'US',
-    label: 'United States',
-    currency: 'USD',
-    provider: 'PayPal',
-    logo: '/media/brand-logos/PayPal-full.svg',
-  },
-] as const;
-
-type BillingCountryOption = (typeof COUNTRIES)[number]['value'];
 
 const PLAN_COPY = {
   STARTER: {
@@ -78,21 +56,27 @@ function intervalLabel(interval: BillingPlan['interval']) {
   return interval === 'month' ? '/mo' : '/yr';
 }
 
-function toBillingCountryOption(country?: string | null): BillingCountryOption {
-  return country?.toUpperCase() === 'IN' ? 'IN' : 'US';
-}
-
 function PlanCard({
   plan,
   currentPlan,
+  pendingPlan,
+  checkoutPendingPlan,
+  isChanging,
+  onSelect,
 }: {
   plan: BillingPlan;
   currentPlan?: string;
+  pendingPlan?: string | null;
+  checkoutPendingPlan?: string;
+  isChanging: boolean;
+  onSelect: (plan: BillingPlan['plan']) => void;
 }) {
   const copy = PLAN_COPY[plan.plan];
   const Icon = copy.icon;
   const isPopular = plan.plan === 'PRO';
   const isCurrent = currentPlan === plan.plan;
+  const isScheduled = pendingPlan === plan.plan;
+  const isCheckoutPending = checkoutPendingPlan === plan.plan;
 
   return (
     <Card
@@ -135,15 +119,20 @@ function PlanCard({
         </div>
 
         <Button
-          asChild
           size="lg"
           variant={isPopular ? 'primary' : 'outline'}
           className="w-full"
-          disabled={isCurrent}
+          disabled={isCurrent || isScheduled || isChanging}
+          onClick={() => onSelect(plan.plan)}
         >
-          <Link to="/settings/subscription">
-            {isCurrent ? 'Current plan' : 'Manage plan'}
-          </Link>
+          {isChanging && <Loader2 className="animate-spin" />}
+          {isCurrent
+            ? 'Current plan'
+            : isScheduled
+              ? 'Scheduled plan'
+              : isCheckoutPending
+                ? 'Continue checkout'
+                : 'Choose plan'}
         </Button>
 
         <div className="border-t border-border pt-6">
@@ -163,13 +152,30 @@ function PlanCard({
 
 export function PlansContent() {
   const { user } = useAuth();
-  const [country, setCountry] = useState<BillingCountryOption>(
-    toBillingCountryOption(user?.billingCountry),
-  );
+  const navigate = useNavigate();
+  const { subscription, loading: subscriptionLoading } = useSubscription();
+  const subscribe = useSubscribe();
+  const country = subscription?.billingCountry ?? user?.billingCountry ?? null;
   const { plans, loading, error, refetch } = usePlans(country);
-  const selectedCountry = COUNTRIES.find((item) => item.value === country) ?? COUNTRIES[0];
+  const provider = plans?.billingProvider;
+  const providerLabel = provider === 'RAZORPAY' ? 'Razorpay' : provider === 'PAYPAL' ? 'PayPal' : null;
+  const providerLogo = provider === 'RAZORPAY'
+    ? '/media/brand-logos/Razorpay-full.svg'
+    : provider === 'PAYPAL'
+      ? '/media/brand-logos/PayPal-full.svg'
+      : null;
 
-  const currentPlan = user?.plan || user?.selectedPlan;
+  const checkoutPendingPlan = subscription?.checkoutPendingAt
+    ? subscription.plan
+    : undefined;
+  const hasCurrentSubscription = Boolean(
+    subscription &&
+      !subscription.checkoutPendingAt &&
+      ['ACTIVE', 'AUTHENTICATED', 'COMPLETED', 'PAST_DUE'].includes(
+        subscription.subscriptionState,
+      ),
+  );
+  const currentPlan = hasCurrentSubscription ? subscription?.plan : undefined;
   const sortedPlans = useMemo(
     () =>
       [...(plans?.plans ?? [])].sort((a, b) =>
@@ -177,6 +183,34 @@ export function PlansContent() {
       ),
     [plans],
   );
+
+  const handleSelectPlan = async (plan: BillingPlan['plan']) => {
+    if (checkoutPendingPlan === plan) {
+      navigate('/settings/subscription');
+      return;
+    }
+
+    try {
+      const result = await subscribe.mutateAsync(plan);
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+        return;
+      }
+
+      toast.success(
+        result.subscription.pendingPlan
+          ? `${result.subscription.pendingPlan} is scheduled for the next billing cycle.`
+          : 'Subscription is already up to date.',
+      );
+      navigate('/settings/subscription');
+    } catch (selectError) {
+      toast.error(
+        selectError instanceof Error
+          ? selectError.message
+          : 'Failed to update subscription plan',
+      );
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:gap-7.5">
@@ -189,46 +223,55 @@ export function PlansContent() {
             </CardDescription>
           </CardHeading>
           <CardToolbar className="w-full sm:w-auto">
-            <Select
-              value={country}
-              onValueChange={(value) => setCountry(toBillingCountryOption(value))}
-            >
-              <SelectTrigger size="lg" className="w-full sm:w-56">
-                <SelectValue placeholder="Billing country" />
-              </SelectTrigger>
-              <SelectContent>
-                {COUNTRIES.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label} - {item.provider}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              {hasCurrentSubscription && subscription && (
+                <Badge variant="success" appearance="light" size="lg">
+                  Current: {subscription.plan}
+                </Badge>
+              )}
+              {subscription?.pendingPlan && (
+                <Badge variant="warning" appearance="light" size="lg">
+                  Scheduled: {subscription.pendingPlan}
+                </Badge>
+              )}
+              {checkoutPendingPlan && (
+                <Badge variant="warning" appearance="light" size="lg">
+                  Checkout pending: {checkoutPendingPlan}
+                </Badge>
+              )}
+              <Badge variant="primary" appearance="light" size="lg">
+                Billing country: {country?.toUpperCase() || 'Not configured'}
+              </Badge>
+            </div>
           </CardToolbar>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-24 items-center justify-center rounded-lg border bg-background px-3">
-                <img
-                  src={selectedCountry.logo}
-                  alt={`${selectedCountry.provider} logo`}
-                  className="max-h-5 w-full object-contain"
-                />
+                {providerLogo ? (
+                  <img
+                    src={toAbsoluteUrl(providerLogo)}
+                    alt={`${providerLabel} logo`}
+                    className="max-h-5 w-full object-contain"
+                  />
+                ) : (
+                  <Skeleton className="h-5 w-16" />
+                )}
               </div>
               <div>
                 <div className="text-sm font-medium text-mono">
                   {plans
-                    ? `${selectedCountry.provider} handles ${plans.currency.toUpperCase()} billing`
+                    ? `${providerLabel} handles ${plans.currency.toUpperCase()} billing`
                     : 'Loading billing provider'}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {selectedCountry.label} ({selectedCountry.value}) pricing.
+                  {plans?.country || country?.toUpperCase() || 'Unknown'} pricing.
                   Plan changes apply at {plans?.planChangePolicy?.replace('_', ' ') || 'cycle end'}.
                 </div>
               </div>
             </div>
-            {loading && (
+            {(loading || subscriptionLoading) && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
                 Loading plans
@@ -253,7 +296,7 @@ export function PlansContent() {
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-7.5">
-        {loading
+        {loading || subscriptionLoading
           ? [0, 1].map((item) => (
               <Card key={item}>
                 <CardContent className="space-y-6 p-6">
@@ -270,7 +313,15 @@ export function PlansContent() {
               </Card>
             ))
           : sortedPlans.map((plan) => (
-              <PlanCard key={plan.plan} plan={plan} currentPlan={currentPlan} />
+              <PlanCard
+                key={plan.plan}
+                plan={plan}
+                currentPlan={currentPlan}
+                pendingPlan={subscription?.pendingPlan}
+                checkoutPendingPlan={checkoutPendingPlan}
+                isChanging={subscribe.isPending && subscribe.variables === plan.plan}
+                onSelect={handleSelectPlan}
+              />
             ))}
       </div>
     </div>

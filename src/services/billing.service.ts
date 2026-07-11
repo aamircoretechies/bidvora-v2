@@ -133,6 +133,25 @@ export interface BillingPlansResponse {
   data: BillingPlansData;
 }
 
+const billingPlansResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    country: z.string().regex(/^[A-Z]{2}$/),
+    currency: z.enum(['inr', 'usd']),
+    billingProvider: z.enum(['RAZORPAY', 'PAYPAL']),
+    planChangePolicy: z.enum(['cycle_end', 'immediate']),
+    plans: z.array(
+      z.object({
+        plan: z.enum(['STARTER', 'PRO']),
+        amountCents: z.number().int().nonnegative(),
+        currency: z.enum(['inr', 'usd']),
+        interval: z.enum(['month', 'year']),
+        displayAmount: z.string().min(1),
+      }),
+    ),
+  }),
+});
+
 export interface BillingErrorResponse {
   success: false;
   error: {
@@ -287,22 +306,20 @@ export const billingService = {
    */
   async getPlans(country: string): Promise<BillingPlansData> {
     const normalizedCountry = country.trim().toUpperCase();
-    const response = (await api.get(
+    if (!/^[A-Z]{2}$/.test(normalizedCountry)) {
+      throw new Error('A valid two-letter billing country is required');
+    }
+
+    const response = await api.get(
       `/billing/plans?country=${encodeURIComponent(normalizedCountry)}`,
-    )) as BillingPlansResponse | BillingErrorResponse;
+    );
+    const parsed = billingPlansResponseSchema.safeParse(response);
 
-    if (!response.success) {
-      const details = response.error.details
-        ?.map((detail) => detail.message)
-        .join(', ');
-      throw new Error(details || response.error.message || 'Failed to fetch billing plans');
+    if (!parsed.success) {
+      throw new Error('The billing plans response has an invalid schema');
     }
 
-    if (!response.data?.plans) {
-      throw new Error('Failed to fetch billing plans');
-    }
-
-    return response.data;
+    return parsed.data.data;
   },
 
   /**
