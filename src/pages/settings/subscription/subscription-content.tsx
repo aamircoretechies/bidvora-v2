@@ -22,10 +22,10 @@ export function SubscriptionContent() {
       <div className="col-span-2 lg:col-span-1 flex">
         <NextPayment />
       </div>
-      <div className="col-span-2 lg:col-span-1 flex">
+     {/*  <div className="col-span-2 lg:col-span-1 flex">
         <PaymentMethods />
-      </div>
-      <div className="col-span-2 lg:col-span-1">
+      </div> */}
+      <div className="col-span-2 lg:col-span-2">
         <BillingInvoicing />
       </div>
     </div>
