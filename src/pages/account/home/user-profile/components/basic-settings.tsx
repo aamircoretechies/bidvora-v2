@@ -1,132 +1,71 @@
-import { Copy, SquarePen } from 'lucide-react';
-import { Link } from 'react-router';
-import { toAbsoluteUrl } from '@/lib/helpers';
-import { Button } from '@/components/ui/button';
+import type { MeUserPayload } from '@/services/auth.service';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
-
-import { useAuth } from '@/auth/context/auth-context';
 
 interface IBasicSettingsProps {
   title: string;
+  user: MeUserPayload;
 }
 
-const BasicSettings = ({ title }: IBasicSettingsProps) => {
-  const { user } = useAuth();
-  const displayEmail = user?.email || 'Loading...';
+function humanize(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
-  return (
-    <Card className="min-w-full">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+function formatDate(value: string | null) {
+  if (!value) return 'Not applicable';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not available';
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
 
-      </CardHeader>
-      <CardContent className="kt-scrollable-x-auto pb-3 p-0">
-        <Table className="align-middle text-sm text-muted-foreground">
-          <TableBody>
-            <TableRow>
-              <TableCell className="py-2 min-w-36 text-secondary-foreground font-normal">
-                Email
-              </TableCell>
-              <TableCell className="py-2 min-w-60">
-                <Link
-                  to="#"
-                  className="text-foreground font-normal text-sm hover:text-primary-active"
-                >
-                  {displayEmail}
-                </Link>
-              </TableCell>
-              <TableCell className="py-2 max-w-16 text-end">
-                <Button variant="ghost" mode="icon">
-                  <SquarePen size={16} className="text-blue-500" />
-                </Button>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="py-2 text-secondary-foreground font-normal">
-                Password
-              </TableCell>
-              <TableCell className="py-2 text-secondary-foreground font-normal">
-                Password last changed 2 months ago
-              </TableCell>
-              <TableCell className="py-2 text-end">
-                <Button variant="ghost" mode="icon">
-                  <SquarePen size={16} className="text-blue-500" />
-                </Button>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="py-3.5text-secondary-foreground font-normal">
-                2FA
-              </TableCell>
-              <TableCell className="py-3.5 text-secondary-foreground font-normal">
-                To be set
-              </TableCell>
-              <TableCell className="py-3 text-end">
-                <Button mode="link" size="sm" underlined="dashed" asChild>
-                  <Link to="#">Setup</Link>
-                </Button>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="py-2text-secondary-foreground font-normal">
-                Sign-in with
-              </TableCell>
-              <TableCell className="py-0.5">
-                <div className="flex items-center gap-2.5">
-                  <Link
-                    to="#"
-                    className="flex items-center justify-center size-8 bg-background rounded-full border border-input"
-                  >
-                    <img
-                      src={toAbsoluteUrl('/media/brand-logos/google.svg')}
-                      className="size-4"
-                      alt=""
-                    />
-                  </Link>
-                  <Link
-                    to="#"
-                    className="flex items-center justify-center size-8 bg-background rounded-full border border-input"
-                  >
-                    <img
-                      src={toAbsoluteUrl('/media/brand-logos/facebook.svg')}
-                      className="size-4"
-                      alt=""
-                    />
-                  </Link>
-                  <Link
-                    to="#"
-                    className="flex items-center justify-center size-8 bg-background rounded-full border border-input"
-                  >
-                    <img
-                      src={toAbsoluteUrl('/media/brand-logos/apple-black.svg')}
-                      className="dark:hidden h-4"
-                      alt="product logo"
-                    />
-                    <img
-                      src={toAbsoluteUrl('/media/brand-logos/apple-white.svg')}
-                      className="light:hidden h-4"
-                      alt="product logo"
-                    />
-                  </Link>
-                </div>
-              </TableCell>
-              <TableCell className="py-2 text-end">
-                <Button variant="ghost" mode="icon">
-                  <SquarePen size={16} className="text-blue-500" />
-                </Button>
-              </TableCell>
-            </TableRow>
-
-
-
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-};
+const BasicSettings = ({ title, user }: IBasicSettingsProps) => (
+  <Card className="min-w-full">
+    <CardHeader>
+      <CardTitle>{title}</CardTitle>
+    </CardHeader>
+    <CardContent className="kt-scrollable-x-auto p-0 pb-3">
+      <Table className="align-middle text-sm text-muted-foreground">
+        <TableBody>
+          <TableRow>
+            <TableCell className="min-w-40 py-3 text-secondary-foreground">Current plan</TableCell>
+            <TableCell className="py-3 font-medium text-foreground">{humanize(user.plan)}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="py-3 text-secondary-foreground">Selected plan</TableCell>
+            <TableCell className="py-3 text-foreground">{humanize(user.selectedPlan)}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="py-3 text-secondary-foreground">Subscription state</TableCell>
+            <TableCell className="py-3">
+              <Badge
+                variant={user.subscriptionState === 'ACTIVE' ? 'success' : user.subscriptionState === 'PAST_DUE' ? 'warning' : 'secondary'}
+                appearance="light"
+              >
+                {humanize(user.subscriptionState)}
+              </Badge>
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="py-3 text-secondary-foreground">Billing setup</TableCell>
+            <TableCell className="py-3">
+              <Badge variant={user.billingPending ? 'warning' : 'success'} appearance="light">
+                {user.billingPending ? 'Action required' : 'Complete'}
+              </Badge>
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell className="py-3 text-secondary-foreground">Trial ends</TableCell>
+            <TableCell className="py-3 text-foreground">{formatDate(user.trialEndsAt)}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </CardContent>
+  </Card>
+);
 
 export { BasicSettings, type IBasicSettingsProps };

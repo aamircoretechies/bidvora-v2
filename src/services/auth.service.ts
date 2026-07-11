@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { z } from 'zod';
 
 // ─── Response shapes (mirror the API contract) ───────────────────────────────
 
@@ -57,6 +58,46 @@ export interface MeResponse {
   };
   meta?: Record<string, unknown>;
 }
+
+const meResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    user: z.object({
+      id: z.number().int(),
+      email: z.string().email(),
+      name: z.string(),
+      role: z.enum(['ADMIN', 'CLIENT', 'USER']),
+      status: z.enum([
+        'PENDING_VERIFICATION',
+        'TRIAL',
+        'ACTIVE',
+        'SUSPENDED',
+        'DEACTIVATED',
+      ]),
+      plan: z.enum(['STARTER', 'PRO']),
+      selectedPlan: z.enum(['STARTER', 'PRO']),
+      trialEndsAt: z.string().nullable(),
+      billingPending: z.boolean(),
+      subscriptionState: z.enum([
+        'NONE',
+        'CREATED',
+        'AUTHENTICATED',
+        'ACTIVE',
+        'PENDING',
+        'HALTED',
+        'CANCELLED',
+        'COMPLETED',
+        'EXPIRED',
+        'PAST_DUE',
+      ]),
+      emailVerified: z.boolean(),
+      billingCountry: z.string().nullable().optional(),
+      billingProvider: z.enum(['RAZORPAY', 'PAYPAL']).nullable().optional(),
+      billingCurrency: z.enum(['inr', 'usd']).nullable().optional(),
+    }),
+  }),
+  meta: z.record(z.string(), z.unknown()).optional(),
+});
 
 export interface AuthErrorResponse {
   success: false;
@@ -170,13 +211,14 @@ export const authService = {
    *   • On every protected-route mount via `verify()` (session check)
    */
   async getMe(): Promise<MeUserPayload> {
-    const response = (await api.get('/auth/me')) as MeResponse;
+    const response = await api.get('/auth/me');
+    const parsed = meResponseSchema.safeParse(response);
 
-    if (!response.success || !response.data?.user) {
-      throw new Error('Unexpected response from /auth/me');
+    if (!parsed.success) {
+      throw new Error('The current-user response has an invalid schema');
     }
 
-    return response.data.user;
+    return parsed.data.data.user;
   },
 
   /**
