@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/context/auth-context';
 import { useBillingHistory } from '@/hooks/use-billing-history';
 import { useCancelSubscription } from '@/hooks/use-cancel-subscription';
 import { useConfirmCheckout } from '@/hooks/use-confirm-checkout';
+import { useRefreshBilling } from '@/hooks/use-refresh-billing';
 import { useSubscribe } from '@/hooks/use-subscribe';
 import { useSubscription } from '@/hooks/use-subscription';
 import type {
@@ -91,6 +92,7 @@ const CompanyProfile = () => {
   const { subscription, loading, error, refetch } = useSubscription();
   const cancelSubscription = useCancelSubscription();
   const confirmCheckout = useConfirmCheckout();
+  const { refreshBilling, isRefreshing } = useRefreshBilling();
   const subscribe = useSubscribe();
   const [cancellation, setCancellation] =
     useState<CancelSubscriptionResult | null>(null);
@@ -153,7 +155,7 @@ const CompanyProfile = () => {
     { value: subscription.billingCountry?.toUpperCase() || 'Not available', label: 'Billing country' },
     { value: formatCurrency(subscription.billingCurrency), label: 'Currency' },
     { value: humanize(subscription.planChangePolicy), label: 'Plan changes' },
-    ...(!checkoutPending
+    ...(!checkoutPending && subscription.currentPeriodEnd
       ? [{ value: formatDate(subscription.currentPeriodEnd), label: 'Period ends' }]
       : []),
   ];
@@ -260,6 +262,19 @@ const CompanyProfile = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      await refreshBilling();
+      toast.success('Billing information refreshed.');
+    } catch (refreshError) {
+      toast.error(
+        refreshError instanceof Error
+          ? refreshError.message
+          : 'Failed to refresh billing information',
+      );
+    }
+  };
+
   return (
     <Card>
       <CardContent className="lg:py-7.5">
@@ -289,7 +304,7 @@ const CompanyProfile = () => {
                 <p className="text-sm text-secondary-foreground">
                   {checkoutPending ? (
                     'Checkout must be completed before the billing period begins.'
-                  ) : periodAvailable ? (
+                  ) : periodStart && subscription.currentPeriodEnd ? (
                     <>
                       Current billing period:{' '}
                       <span className="font-medium text-foreground">
@@ -297,6 +312,16 @@ const CompanyProfile = () => {
                         {formatDate(subscription.currentPeriodEnd)}
                       </span>
                     </>
+                  ) : periodStart ? (
+                    <>
+                      Billing period started:{' '}
+                      <span className="font-medium text-foreground">
+                        {formatDate(periodStart)}
+                      </span>
+                      . Renewal date is awaiting provider synchronization.
+                    </>
+                  ) : periodAvailable ? (
+                    'Billing period information is awaiting provider synchronization.'
                   ) : (
                     'No active billing period is available.'
                   )}
@@ -362,8 +387,13 @@ const CompanyProfile = () => {
                   </AlertDialog>
                 )}
 
-                <Button variant="outline" size="sm" onClick={refetch}>
-                  <RefreshCw />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={isRefreshing ? 'animate-spin' : ''} />
                   Refresh
                 </Button>
               </div>
