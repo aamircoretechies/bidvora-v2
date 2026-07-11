@@ -1,5 +1,9 @@
 import type { MeUserPayload } from '@/services/auth.service';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useResendVerificationEmail } from '@/hooks/use-resend-verification-email';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 
@@ -21,7 +25,23 @@ function initials(name: string) {
   return value || 'U';
 }
 
-const PersonalInfo = ({ user }: { user: MeUserPayload }) => (
+const PersonalInfo = ({ user }: { user: MeUserPayload }) => {
+  const resendVerification = useResendVerificationEmail();
+
+  const handleResendVerification = async () => {
+    try {
+      await resendVerification.mutateAsync();
+      toast.success('A new verification link has been sent to your email.');
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to resend the verification email',
+      );
+    }
+  };
+
+  return (
   <Card className="min-w-full">
     <CardHeader>
       <CardTitle>Personal Info</CardTitle>
@@ -52,12 +72,32 @@ const PersonalInfo = ({ user }: { user: MeUserPayload }) => (
           <TableRow>
             <TableCell className="py-3 text-secondary-foreground">Email status</TableCell>
             <TableCell className="py-3">
-              <Badge
-                variant={user.emailVerified ? 'success' : 'warning'}
-                appearance="light"
-              >
-                {user.emailVerified ? 'Verified' : 'Not verified'}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant={user.emailVerified ? 'success' : 'warning'}
+                  appearance="light"
+                >
+                  {user.emailVerified ? 'Verified' : 'Not verified'}
+                </Badge>
+                {!user.emailVerified && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    mode="link"
+                    size="sm"
+                    underlined="dashed"
+                    onClick={handleResendVerification}
+                    disabled={resendVerification.isPending}
+                  >
+                    {resendVerification.isPending && (
+                      <Loader2 className="animate-spin" />
+                    )}
+                    {resendVerification.isPending
+                      ? 'Sending verification email'
+                      : 'Resend verification email'}
+                  </Button>
+                )}
+              </div>
             </TableCell>
           </TableRow>
           <TableRow>
@@ -79,6 +119,7 @@ const PersonalInfo = ({ user }: { user: MeUserPayload }) => (
       </Table>
     </CardContent>
   </Card>
-);
+  );
+};
 
 export { PersonalInfo };
