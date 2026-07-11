@@ -108,6 +108,7 @@ import { PlansPage } from '@/pages/settings/plans';
 import { BiddingPage } from '@/pages/settings/bidding';
 import { AiPage } from '@/pages/settings/ai';
 import { FreelancerCallbackPage } from '@/pages/freelancer/callback';
+import { BillingPendingPage } from '@/auth/pages/billing-pending-page';
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router';
 
 const ResetPasswordRedirect = () => {
@@ -425,6 +426,7 @@ export function AppRoutingSetup() {
       <Route path="verify-email/:token" element={<VerifyEmailRedirect />} />
       <Route path="verify-email/*" element={<VerifyEmailRedirect />} />
       <Route path="verify-email" element={<VerifyEmailRedirect />} />
+      <Route path="billing/success" element={<BillingPendingPage />} />
       <Route path="error/*" element={<ErrorRouting />} />
       <Route path="auth/*" element={<AuthRouting />} />
       <Route path="*" element={<Navigate to="/error/404" />} />

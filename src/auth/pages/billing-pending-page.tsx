@@ -47,6 +47,15 @@ export function BillingPendingPage() {
   const [subscriptionId] = useState(() => readSubscriptionId(searchParams));
 
   useEffect(() => {
+    if (subscriptionId) {
+      sessionStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, subscriptionId);
+      localStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, subscriptionId);
+    }
+
+    if (window.location.search) {
+      window.history.replaceState(window.history.state, '', window.location.pathname);
+    }
+
     let isMounted = true;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const startedAt = Date.now();
@@ -139,10 +148,11 @@ export function BillingPendingPage() {
 
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Waiting for payment
+          Confirming your payment
         </h1>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          We are confirming your card mandate. This usually takes a few seconds after checkout redirects you back.
+          We are securely checking your subscription with the payment provider.
+          This usually takes a few seconds after checkout redirects you back.
         </p>
       </div>
 
