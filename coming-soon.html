@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Something new is coming from Core Techies." />
+    <meta name="theme-color" content="#f8fbff" />
+    <title>Something New Is Coming | Core Techies</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #111722;
+        --muted: #60708a;
+        --blue: #176cf5;
+        --orange: #f59a00;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { min-height: 100%; margin: 0; }
+
+      body {
+        min-height: 100svh;
+        background:
+          radial-gradient(circle at 15% 18%, rgb(23 108 245 / 13%), transparent 30rem),
+          radial-gradient(circle at 88% 75%, rgb(245 154 0 / 12%), transparent 28rem),
+          linear-gradient(145deg, #fff 0%, #f8fbff 50%, #edf4ff 100%);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        opacity: .32;
+        background-image:
+          linear-gradient(rgb(23 108 245 / 8%) 1px, transparent 1px),
+          linear-gradient(90deg, rgb(23 108 245 / 8%) 1px, transparent 1px);
+        background-size: 72px 72px;
+        mask-image: linear-gradient(to bottom, black, transparent 80%);
+      }
+
+      .page {
+        position: relative;
+        display: grid;
+        min-height: 100svh;
+        grid-template-rows: auto 1fr auto;
+        padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1.25rem, 6vw, 6.5rem) 1.5rem;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        gap: 1rem;
+        width: fit-content;
+        margin-inline: auto;
+        text-align: center;
+      }
+
+      .logo-shell {
+        display: grid;
+        width: clamp(13rem, 25vw, 21rem);
+        place-items: center;
+        padding: .75rem 1rem;
+        border: 1px solid rgb(17 23 34 / 8%);
+        border-radius: 1rem;
+        background: rgb(255 255 255 / 96%);
+        box-shadow: 0 18px 50px rgb(39 78 140 / 12%);
+      }
+
+      .logo-shell img { display: block; width: 100%; height: auto; }
+
+      .tagline {
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(.72rem, 1vw, .92rem);
+        font-weight: 650;
+        letter-spacing: .17em;
+        text-transform: uppercase;
+      }
+
+      main {
+        display: grid;
+        align-items: center;
+        justify-items: center;
+        padding-block: clamp(3rem, 8vh, 7rem);
+      }
+
+      .content { width: min(58rem, 100%); text-align: center; }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: .7rem;
+        margin: 0 0 1.5rem;
+        color: #245db8;
+        font-size: .78rem;
+        font-weight: 750;
+        letter-spacing: .2em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 2.6rem;
+        height: 2px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--blue), var(--orange));
+        content: "";
+      }
+
+      h1 {
+        max-width: 13ch;
+        margin: 0 auto;
+        color: transparent;
+        background: linear-gradient(100deg, #111722 5%, var(--blue) 58%, #e98400 100%);
+        background-clip: text;
+        -webkit-background-clip: text;
+        font-size: clamp(3.6rem, 9vw, 8.2rem);
+        font-weight: 780;
+        letter-spacing: -.07em;
+        line-height: .9;
+        text-wrap: balance;
+      }
+
+      .message {
+        max-width: 42rem;
+        margin: clamp(1.8rem, 4vw, 2.8rem) auto 0;
+        color: var(--muted);
+        font-size: clamp(1.05rem, 2vw, 1.35rem);
+        line-height: 1.65;
+      }
+
+      .message strong { color: var(--ink); font-weight: 650; }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: .65rem;
+        margin-top: 2rem;
+        padding: .8rem 1rem;
+        border: 1px solid rgb(23 108 245 / 14%);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 72%);
+        color: #33445f;
+        font-size: .85rem;
+        backdrop-filter: blur(12px);
+      }
+
+      .status-dot {
+        width: .55rem;
+        height: .55rem;
+        border-radius: 50%;
+        background: var(--orange);
+        animation: pulse 2.3s infinite;
+      }
+
+      footer {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        gap: .7rem;
+        padding-top: 1.35rem;
+        border-top: 1px solid rgb(17 23 34 / 10%);
+        color: #71809a;
+        font-size: .82rem;
+        letter-spacing: .04em;
+        text-align: center;
+      }
+
+      footer p { margin: 0; }
+
+      @keyframes pulse {
+        70% { box-shadow: 0 0 0 .55rem rgb(245 154 0 / 0%); }
+      }
+
+      @media (max-width: 720px) {
+        .page { padding-inline: 1.25rem; }
+        .logo-shell { width: min(17rem, 78vw); }
+        main { padding-block: 4.5rem; }
+        h1 { font-size: clamp(3.4rem, 17vw, 5.5rem); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .status-dot { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="brand" aria-label="Core Techies — Your AI Partner">
+          <div class="logo-shell">
+            <img src="./public/core-techies-logo.png" alt="Core Techies" />
+          </div>
+          <p class="tagline">Your AI Partner</p>
+        </div>
+      </header>
+
+      <main>
+        <section class="content" aria-labelledby="page-title">
+          <p class="eyebrow">A new chapter is loading</p>
+          <h1 id="page-title">Something new is coming.</h1>
+          <p class="message">
+            <strong>Stay tuned.</strong> We&rsquo;re creating something thoughtful,
+            intelligent, and built for what comes next. We&rsquo;ll be right back. Thanks.
+          </p>
+          <div class="status" role="status">
+            <span class="status-dot" aria-hidden="true"></span>
+            We&rsquo;re working behind the scenes
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>Core Techies India Pvt Ltd</p>
+        <p>Technology, transformed.</p>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Loader2,
   Code2,
   ShieldCheck,
@@ -14,6 +21,7 @@ import {
   EyeOff,
   AlertTriangle,
   ArrowLeft,
+  Brain,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { toAbsoluteUrl } from '@/lib/helpers';
@@ -22,18 +30,24 @@ import { toAbsoluteUrl } from '@/lib/helpers';
 const STEPS = [
   {
     number: 1,
+    icon: Brain,
+    title: 'AI Provider Setup',
+    description: 'Select and configure AI Model',
+  },
+  {
+    number: 2,
     icon: Code2,
     title: 'Freelancer API Setup',
     description: 'Connect your Freelancer developer app',
   },
   {
-    number: 2,
+    number: 3,
     icon: ShieldCheck,
     title: 'Permissions & Redirects',
     description: 'Verify scopes and callback URL',
   },
   {
-    number: 3,
+    number: 4,
     icon: Lock,
     title: 'Secure Integration',
     description: 'Save credentials safely',
@@ -41,7 +55,7 @@ const STEPS = [
 ];
 
 /* ─── Left sidebar ───────────────────────────────────────────────────── */
-function OnboardingSidebar({ step }: { step: 1 | 2 }) {
+function OnboardingSidebar({ step }: { step: 1 | 2 | 3 }) {
   return (
     <aside className="flex flex-col justify-between w-full lg:w-72 xl:w-80 shrink-0 bg-[#1d3a8a] rounded-2xl p-6 text-white">
       {/* Logo */}
@@ -59,8 +73,8 @@ function OnboardingSidebar({ step }: { step: 1 | 2 }) {
         <nav className="flex flex-col gap-1 mb-8">
           {STEPS.map((s, i) => {
             const Icon = s.icon;
-            const isActive = s.number === (step === 1 ? 1 : 3);
-            const isDone = step === 2 && s.number < 3;
+            const isActive = s.number === (step === 1 ? 1 : step === 2 ? 2 : 4);
+            const isDone = s.number < (step === 1 ? 1 : step === 2 ? 2 : 4);
             return (
               <div key={s.number} className="flex items-start gap-3">
                 <div className="flex flex-col items-center">
@@ -176,14 +190,127 @@ function OnboardingSidebar({ step }: { step: 1 | 2 }) {
   );
 }
 
-/* ─── Step 1 — API Keys form ─────────────────────────────────────────── */
-function Step1Form({
+/* ─── Step 1 — AI Setup ────────────────────────────────────────────── */
+function StepAISetup({
+  llmModel,
+  setLlmModel,
+  aiApiKey,
+  setAiApiKey,
+  saving,
+  onNext,
+}: {
+  llmModel: string;
+  setLlmModel: (v: string) => void;
+  aiApiKey: string;
+  setAiApiKey: (v: string) => void;
+  saving: boolean;
+  onNext: () => void;
+}) {
+  const [error, setError] = useState('');
+
+  const handleKeyChange = (val: string) => {
+    setAiApiKey(val);
+    if (val.startsWith('sk-')) setLlmModel('gpt-5.5');
+    else if (val.startsWith('AIza')) setLlmModel('gemini-pro');
+    else if (val.startsWith('nvapi-')) setLlmModel('nvidia-nemotron');
+  };
+
+  useEffect(() => {
+    if (!aiApiKey) {
+      setError('');
+      return;
+    }
+    if (llmModel === 'gpt-5.5' && !aiApiKey.startsWith('sk-')) {
+      setError('GPT-5.5 API Key should start with "sk-"');
+    } else if (llmModel === 'gemini-pro' && !aiApiKey.startsWith('AIza')) {
+      setError('Gemini API Key should start with "AIza"');
+    } else if (llmModel === 'nvidia-nemotron' && !aiApiKey.startsWith('nvapi-')) {
+      setError('Nvidia Nemotron API Key should start with "nvapi-"');
+    } else {
+      setError('');
+    }
+  }, [llmModel, aiApiKey]);
+
+  const handleNext = () => {
+    if (!aiApiKey) {
+      toast.error('Please enter an API Key');
+      return;
+    }
+    if (error) {
+      toast.error('Invalid API Key for the selected model');
+      return;
+    }
+    onNext();
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="mb-6">
+        <p className="text-sm font-semibold text-primary mb-4">Step 1/4</p>
+        <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
+          Configure AI Provider
+        </h2>
+        <p className="text-muted-foreground text-sm leading-relaxed max-w-lg">
+          Select the AI model you want to use and provide its API key.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-5 max-w-xl">
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold text-foreground">AI Model</Label>
+          <Select value={llmModel} onValueChange={setLlmModel}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
+              <SelectItem value="gpt-5.5">GPT-5.5</SelectItem>
+              <SelectItem value="nvidia-nemotron">Nvidia Nemotron</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold text-foreground">API Key</Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              type="password"
+              value={aiApiKey}
+              onChange={e => handleKeyChange(e.target.value)}
+              placeholder="Enter your AI API Key"
+              className="pl-9 font-mono text-sm"
+              variant="lg"
+            />
+          </div>
+          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          <p className="text-xs text-muted-foreground mt-1">
+            {llmModel === 'gpt-5.5' && 'Expects a key starting with "sk-"'}
+            {llmModel === 'gemini-pro' && 'Expects a key starting with "AIza"'}
+            {llmModel === 'nvidia-nemotron' && 'Expects a key starting with "nvapi-"'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8 flex items-center gap-3">
+        <Button className="px-8 gap-2" size="lg" onClick={handleNext} disabled={saving || !!error}>
+          {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+          Continue
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Step 2 — API Keys form ─────────────────────────────────────────── */
+function StepApiKeys({
   clientId,
   clientSecret,
   setClientId,
   setClientSecret,
   saving,
   onSave,
+  onBack,
 }: {
   clientId: string;
   clientSecret: string;
@@ -191,6 +318,7 @@ function Step1Form({
   setClientSecret: (v: string) => void;
   saving: boolean;
   onSave: () => void;
+  onBack: () => void;
 }) {
   const [showSecret, setShowSecret] = useState(false);
 
@@ -198,7 +326,7 @@ function Step1Form({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="mb-6">
-        <p className="text-sm font-semibold text-primary mb-4">Step 1/3</p>
+        <p className="text-sm font-semibold text-primary mb-4">Step 2/4</p>
         <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
           Connect your Freelancer account
         </h2>
@@ -279,7 +407,7 @@ function Step1Form({
           variant="outline"
           size="icon"
           className="rounded-full w-10 h-10 shrink-0"
-          disabled
+          onClick={onBack}
           aria-label="Back"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -293,8 +421,8 @@ function Step1Form({
   );
 }
 
-/* ─── Step 2 — Connect OAuth ─────────────────────────────────────────── */
-function Step2Connect({
+/* ─── Step 3 — Connect OAuth ─────────────────────────────────────────── */
+function StepConnect({
   onComplete,
   onBack,
 }: {
@@ -305,7 +433,7 @@ function Step2Connect({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="mb-6">
-        <p className="text-sm font-semibold text-primary mb-4">Step 3/3</p>
+        <p className="text-sm font-semibold text-primary mb-4">Step 4/4</p>
         <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
           Authorize Freelancer OAuth
         </h2>
@@ -343,9 +471,12 @@ function Step2Connect({
 
 /* ─── Main component ─────────────────────────────────────────────────── */
 export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [llmModel, setLlmModel] = useState('gemini-pro');
+  const [aiApiKey, setAiApiKey] = useState('');
 
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
@@ -398,12 +529,18 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       const response = await settingsService.getSettings();
       if (response.success) {
 
+        const authConfig = response.data.authConfig;
+        if (authConfig.llmModel) setLlmModel(authConfig.llmModel);
+        if (authConfig.llmModel === 'gpt-5.5' && authConfig.openaiApiKey) setAiApiKey(authConfig.openaiApiKey);
+        if (authConfig.llmModel === 'gemini-pro' && authConfig.geminiApiKey) setAiApiKey(authConfig.geminiApiKey);
+        if (authConfig.llmModel === 'nvidia-nemotron' && authConfig.nvidiaApiKey) setAiApiKey(authConfig.nvidiaApiKey);
+
         if (
-          response.data.authConfig.clientId &&
-          response.data.authConfig.clientId !== 'my-client-id'
+          authConfig.clientId &&
+          authConfig.clientId !== 'my-client-id'
         ) {
-          setClientId(response.data.authConfig.clientId);
-          setStep(2);
+          setClientId(authConfig.clientId);
+          setStep(3);
         }
       }
     } catch (e) {
@@ -423,7 +560,8 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
     try {
       // The API validates all BotConfig fields on every PUT, so we must
       // include safe minimum values for fields not yet configured by the user.
-      const payload = {
+      const payload: any = {
+        llmModel,
         clientId,
         clientSecret,
         minBudget: 1,
@@ -435,12 +573,15 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         dailyBidLimit: 1,
         maxBidsPerCycle: 1,
         maxExistingBids: 1,
-        openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY,
-        embeddingApiKey: import.meta.env.VITE_OPENAI_API_KEY,
       };
+
+      if (llmModel === 'gpt-5.5') payload.openaiApiKey = aiApiKey;
+      if (llmModel === 'gemini-pro') payload.geminiApiKey = aiApiKey;
+      if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = aiApiKey;
+
       await settingsService.updateSettings(payload);
-      toast.success('API Keys saved successfully');
-      setStep(2);
+      toast.success('Settings saved successfully');
+      setStep(3);
     } catch (error: any) {
       toast.error(error?.message || 'Failed to save API keys');
     } finally {
@@ -465,17 +606,29 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
         {/* ── Right content ── */}
         <div className="flex-1 p-6 lg:p-10 overflow-auto">
-          {step === 1 ? (
-            <Step1Form
+          {step === 1 && (
+            <StepAISetup
+              llmModel={llmModel}
+              setLlmModel={setLlmModel}
+              aiApiKey={aiApiKey}
+              setAiApiKey={setAiApiKey}
+              saving={false}
+              onNext={() => setStep(2)}
+            />
+          )}
+          {step === 2 && (
+            <StepApiKeys
               clientId={clientId}
               clientSecret={clientSecret}
               setClientId={setClientId}
               setClientSecret={setClientSecret}
               saving={saving}
               onSave={handleSaveKeys}
+              onBack={() => setStep(1)}
             />
-          ) : (
-            <Step2Connect onComplete={onComplete} onBack={() => setStep(1)} />
+          )}
+          {step === 3 && (
+            <StepConnect onComplete={onComplete} onBack={() => setStep(2)} />
           )}
         </div>
       </div>
