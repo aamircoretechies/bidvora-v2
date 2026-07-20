@@ -150,16 +150,16 @@ function OnboardingSidebar({ step }: { step: 1 | 2 | 3 }) {
                   </li>
                 </ul>
               </>,
-              <>
+             /*  <>
                 Advanced Scopes:
                 <ul className="mt-1 ml-3 list-disc space-y-0.5 text-white/70">
                   <li>Manage your projects, bids and milestones on freelancer.com on your behalf</li>
                   <li>Send and read messages to your freelancer.com contacts</li>
                   <li>View your user and profile information</li>
                 </ul>
-              </>,
+              </> */,
               'Save the app and copy the generated credentials.',
-              'Share securely with backend only.',
+              'Share securely with Bidvora only.',
             ].map((item, idx) => (
               <li key={idx} className="flex gap-2">
                 <span className="flex-none flex items-center justify-center w-4 h-4 rounded-full bg-white/10 text-[10px] font-bold text-white/60 mt-0.5">
