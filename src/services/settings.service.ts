@@ -9,6 +9,10 @@ export interface AuthConfig {
   refreshToken: string;
   expiresAt: string;
   isFreelancerConnected: boolean;
+  llmModel?: string;
+  openaiApiKey?: string;
+  geminiApiKey?: string;
+  nvidiaApiKey?: string;
 }
 
 export interface BotConfig {

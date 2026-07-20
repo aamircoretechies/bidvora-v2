@@ -530,10 +530,13 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       if (response.success) {
 
         const authConfig = response.data.authConfig;
-        if (authConfig.llmModel) setLlmModel(authConfig.llmModel);
-        if (authConfig.llmModel === 'gpt-5.5' && authConfig.openaiApiKey) setAiApiKey(authConfig.openaiApiKey);
-        if (authConfig.llmModel === 'gemini-pro' && authConfig.geminiApiKey) setAiApiKey(authConfig.geminiApiKey);
-        if (authConfig.llmModel === 'nvidia-nemotron' && authConfig.nvidiaApiKey) setAiApiKey(authConfig.nvidiaApiKey);
+        const botConfig = response.data.botConfig;
+        const secrets = response.data.secrets;
+        
+        if (botConfig.llmModel) setLlmModel(botConfig.llmModel);
+        if (botConfig.llmModel === 'gpt-5.5' && secrets.openaiApiKey) setAiApiKey(secrets.openaiApiKey);
+        if (botConfig.llmModel === 'gemini-pro' && secrets.geminiApiKey) setAiApiKey(secrets.geminiApiKey);
+        if (botConfig.llmModel === 'nvidia-nemotron' && secrets.nvidiaApiKey) setAiApiKey(secrets.nvidiaApiKey);
 
         if (
           authConfig.clientId &&
