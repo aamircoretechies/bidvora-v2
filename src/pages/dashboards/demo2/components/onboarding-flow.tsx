@@ -579,6 +579,9 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       if (llmModel === 'gemini-pro') payload.geminiApiKey = aiApiKey;
       if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = aiApiKey;
 
+      // The backend requires embeddingApiKey for bot operations
+      payload.embeddingApiKey = aiApiKey;
+
       await settingsService.updateSettings(payload);
       toast.success('Settings saved successfully');
       setStep(3);
