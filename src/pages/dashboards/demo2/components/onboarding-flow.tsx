@@ -137,15 +137,15 @@ function OnboardingSidebar({ step }: { step: 1 | 2 | 3 }) {
                   <li>
                     Application Homepage:{' '}
                     <span className="text-white/60 break-all">
-                      {import.meta.env.VITE_FREELANCER_REDIRECT_URI?.replace('/callback', '') ??
-                        'https://your-backend.example.com'}
+                      {import.meta.env.VITE_FREELANCER_HOME_URI ??
+                        'https://bidvora.coretechiestest.org/'}
                     </span>
                   </li>
                   <li>
                     Redirect Endpoint:{' '}
                     <span className="text-white/60 break-all">
                       {import.meta.env.VITE_FREELANCER_REDIRECT_URI ??
-                        'https://your-backend.example.com/callback'}
+                        'https://bidvora.coretechiestest.org/callback'}
                     </span>
                   </li>
                 </ul>
@@ -530,13 +530,10 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       if (response.success) {
 
         const authConfig = response.data.authConfig;
-        const botConfig = response.data.botConfig;
-        const secrets = response.data.secrets;
-        
-        if (botConfig.llmModel) setLlmModel(botConfig.llmModel);
-        if (botConfig.llmModel === 'gpt-5.5' && secrets.openaiApiKey) setAiApiKey(secrets.openaiApiKey);
-        if (botConfig.llmModel === 'gemini-pro' && secrets.geminiApiKey) setAiApiKey(secrets.geminiApiKey);
-        if (botConfig.llmModel === 'nvidia-nemotron' && secrets.nvidiaApiKey) setAiApiKey(secrets.nvidiaApiKey);
+        if (authConfig.llmModel) setLlmModel(authConfig.llmModel);
+        if (authConfig.llmModel === 'gpt-5.5' && authConfig.openaiApiKey) setAiApiKey(authConfig.openaiApiKey);
+        if (authConfig.llmModel === 'gemini-pro' && authConfig.geminiApiKey) setAiApiKey(authConfig.geminiApiKey);
+        if (authConfig.llmModel === 'nvidia-nemotron' && authConfig.nvidiaApiKey) setAiApiKey(authConfig.nvidiaApiKey);
 
         if (
           authConfig.clientId &&
