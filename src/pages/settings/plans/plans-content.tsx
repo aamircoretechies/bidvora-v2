@@ -23,6 +23,58 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const RAZORPAY_SCRIPT_ID = 'razorpay-checkout-script';
+
+interface RazorpayOptions {
+  key: string;
+  subscription_id: string;
+  name: string;
+  prefill?: { email: string; name: string };
+  handler: () => void;
+  modal: { ondismiss: () => void };
+}
+
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: 'payment.failed', handler: () => void) => void;
+}
+
+type RazorpayConstructor = new (options: RazorpayOptions) => RazorpayInstance;
+
+let razorpayScriptPromise: Promise<void> | null = null;
+
+function loadRazorpayScript() {
+  const razorpayWindow = window as Window & { Razorpay?: RazorpayConstructor };
+  if (razorpayWindow.Razorpay) return Promise.resolve();
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+
+  razorpayScriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.getElementById(
+      RAZORPAY_SCRIPT_ID,
+    ) as HTMLScriptElement | null;
+    const script = existing ?? document.createElement('script');
+
+    script.addEventListener('load', () => resolve(), { once: true });
+    script.addEventListener(
+      'error',
+      () => {
+        razorpayScriptPromise = null;
+        reject(new Error('Unable to load Razorpay Checkout. Please try again.'));
+      },
+      { once: true },
+    );
+
+    if (!existing) {
+      script.id = RAZORPAY_SCRIPT_ID;
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  });
+
+  return razorpayScriptPromise;
+}
+
 const PLAN_COPY = {
   STARTER: {
     title: 'Starter',
@@ -192,8 +244,40 @@ export function PlansContent() {
 
     try {
       const result = await subscribe.mutateAsync(plan);
-      if (result.checkoutUrl) {
-        window.location.assign(result.checkoutUrl);
+
+      if (result.checkout?.checkoutMode === 'redirect') {
+        window.location.assign(result.checkout.checkoutUrl);
+        return;
+      }
+
+      if (result.checkout?.checkoutMode === 'razorpay_modal') {
+        await loadRazorpayScript();
+        const Razorpay = (window as Window & { Razorpay?: RazorpayConstructor })
+          .Razorpay;
+        if (!Razorpay) {
+          throw new Error('Razorpay Checkout is unavailable.');
+        }
+
+        const checkout = new Razorpay({
+          key: result.checkout.razorpayKeyId,
+          subscription_id: result.checkout.subscriptionId,
+          name: 'Bidvora',
+          prefill: result.checkout.prefill,
+          handler: () => {
+            toast.success(
+              'Payment submitted. Your subscription will update after confirmation.',
+            );
+            navigate('/settings/subscription');
+          },
+          modal: {
+            ondismiss: () => undefined,
+          },
+        });
+
+        checkout.on('payment.failed', () => {
+          toast.error('Razorpay could not complete the payment. Please try again.');
+        });
+        checkout.open();
         return;
       }
 

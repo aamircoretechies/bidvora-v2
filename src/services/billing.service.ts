@@ -90,7 +90,24 @@ const subscribeResponseSchema = z.object({
   success: z.literal(true),
   data: z.object({
     subscription: subscriptionSchema,
-    checkoutUrl: z.string().url().nullable().optional(),
+    checkout: z.discriminatedUnion('checkoutMode', [
+      z.object({
+        checkoutMode: z.literal('razorpay_modal'),
+        subscriptionId: z.string().min(1),
+        razorpayKeyId: z.string().min(1),
+        prefill: z
+          .object({
+            email: z.string().email(),
+            name: z.string(),
+          })
+          .optional(),
+      }),
+      z.object({
+        checkoutMode: z.literal('redirect'),
+        subscriptionId: z.string().min(1),
+        checkoutUrl: z.string().url(),
+      }),
+    ]).optional(),
   }),
   meta: z.record(z.string(), z.unknown()).optional(),
 });
