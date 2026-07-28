@@ -1,6 +1,9 @@
 const FREELANCER_AUTHORIZE_URL =
   'https://accounts.freelancer.com/oauth/authorize';
 
+export const DEFAULT_FREELANCER_REDIRECT_URI =
+  'https://bidvora.coretechiestest.org/callback';
+
 export const isFreelancerClientId = (value: string): boolean =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value.trim(),

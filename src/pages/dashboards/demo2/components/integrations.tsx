@@ -10,7 +10,10 @@ import { freelancerService } from '@/services/freelancer.service';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth/context/auth-context';
 import { settingsService } from '@/services/settings.service';
-import { buildFreelancerAuthorizeUrl } from '@/lib/freelancer-oauth';
+import {
+  buildFreelancerAuthorizeUrl,
+  DEFAULT_FREELANCER_REDIRECT_URI,
+} from '@/lib/freelancer-oauth';
 
 interface IIntegrationsItem {
   logo: string;
@@ -86,12 +89,9 @@ const Integrations = ({
         const clientId =
           freelancerClientId?.trim() ||
           (await settingsService.getSettings()).data.authConfig.clientId;
-        const redirectUri =
-          import.meta.env.VITE_FREELANCER_REDIRECT_URI ||
-          `${window.location.origin}/callback`;
         const authorizeUrl = buildFreelancerAuthorizeUrl({
           clientId,
-          redirectUri,
+          redirectUri: DEFAULT_FREELANCER_REDIRECT_URI,
           serverAuthorizeUrl: response.data.url,
         });
         const width = 600;
