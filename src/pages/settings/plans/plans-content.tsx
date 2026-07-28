@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/context/auth-context';
 import { usePlans } from '@/hooks/use-plans';
 import { useSubscribe } from '@/hooks/use-subscribe';
 import { useSubscription } from '@/hooks/use-subscription';
+import { useTrialExpiryRefresh } from '@/hooks/use-trial-expiry-refresh';
 import type { BillingPlan } from '@/services/billing.service';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { cn } from '@/lib/utils';
@@ -210,6 +211,7 @@ export function PlansContent() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { subscription, loading: subscriptionLoading } = useSubscription();
+  useTrialExpiryRefresh(subscription?.trialEndsAt ?? user?.trialEndsAt);
   const subscribe = useSubscribe();
   const country = subscription?.billingCountry ?? user?.billingCountry ?? null;
   const { plans, loading, error, refetch } = usePlans(country);
@@ -224,7 +226,13 @@ export function PlansContent() {
   const checkoutPendingPlan = subscription?.checkoutPendingAt
     ? subscription.plan
     : undefined;
-  const isTrial = subscription?.status === 'TRIAL';
+  const trialEndsAt = subscription?.trialEndsAt ?? user?.trialEndsAt ?? null;
+  const trialEndTime = trialEndsAt ? new Date(trialEndsAt).getTime() : null;
+  const isTrial =
+    (subscription?.status === 'TRIAL' || user?.status === 'TRIAL') &&
+    (trialEndTime === null ||
+      Number.isNaN(trialEndTime) ||
+      trialEndTime > Date.now());
   const hasCurrentSubscription = Boolean(
     subscription &&
       !subscription.checkoutPendingAt &&

@@ -30,6 +30,7 @@ export interface SubscriptionData {
   planChangePolicy: BillingPlanChangePolicy | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
+  trialEndsAt?: string | null;
   pendingPlan: string | null;
   planChangeEffectiveAt: string | null;
   checkoutPendingAt: string | null;
@@ -63,6 +64,7 @@ const subscriptionSchema = z.object({
       planChangePolicy: z.enum(['cycle_end', 'immediate']).nullable(),
       currentPeriodStart: z.string().nullable(),
       currentPeriodEnd: z.string().nullable(),
+      trialEndsAt: z.string().nullable().optional(),
       pendingPlan: z.string().nullable(),
       planChangeEffectiveAt: z.string().nullable(),
       checkoutPendingAt: z.string().nullable(),

@@ -20,8 +20,16 @@ const Upgrade = () => {
   const { subscription, loading: subscriptionLoading } = useSubscription();
 
   // Determine if we're still in a trial period
-  const isTrial = user?.status === 'TRIAL' || user?.status === 'PENDING_VERIFICATION';
-  const trialDays = daysUntil(user?.trialEndsAt ?? null);
+  const trialEndsAt = subscription?.trialEndsAt ?? user?.trialEndsAt ?? null;
+  const trialDays = daysUntil(trialEndsAt);
+  const trialEndTime = trialEndsAt ? new Date(trialEndsAt).getTime() : null;
+  const isTrial =
+    (subscription?.status === 'TRIAL' ||
+      user?.status === 'TRIAL' ||
+      user?.status === 'PENDING_VERIFICATION') &&
+    (trialEndTime === null ||
+      Number.isNaN(trialEndTime) ||
+      trialEndTime > Date.now());
   const checkoutPending = Boolean(subscription?.checkoutPendingAt);
 
   // Show the upgrade banner only for non-PRO or trial plans
@@ -76,15 +84,23 @@ const Upgrade = () => {
               </div>
               <div className="text-sm text-secondary-foreground">
                 {planLabel === 'Starter'
-                  ? 'Upgrade to Pro for advanced automation, more bids, and priority support.'
+                  ? isTrial
+                    ? 'Upgrade to Pro after trial period for advanced automation, more bids, and priority support.'
+                    : 'Upgrade to Pro for advanced automation, more bids, and priority support.'
                   : 'Upgrade to Enterprise for unlimited access and dedicated account management.'}
               </div>
             </div>
           </div>
           <div className="ms-auto shrink-0">
-            <Button variant="mono" asChild>
-              <Link to="/settings/plans">Upgrade Plan</Link>
-            </Button>
+            {isTrial ? (
+              <Button variant="mono" disabled>
+                Upgrade Plan
+              </Button>
+            ) : (
+              <Button variant="mono" asChild>
+                <Link to="/settings/plans">Upgrade Plan</Link>
+              </Button>
+            )}
           </div>
         </div>
       </Card>

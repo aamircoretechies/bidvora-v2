@@ -13,6 +13,22 @@ export function useSubscription(): UseSubscriptionResult {
     queryKey: ['billing', 'subscription'],
     queryFn: () => billingService.getSubscription(),
     staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: (subscriptionQuery) => {
+      const subscription = subscriptionQuery.state.data;
+      if (!subscription) return 30_000;
+
+      const isAwaitingServerUpdate =
+        subscription.status === 'TRIAL' ||
+        Boolean(subscription.checkoutPendingAt) ||
+        Boolean(subscription.pendingPlan) ||
+        ['CREATED', 'AUTHENTICATED', 'PENDING', 'PAST_DUE'].includes(
+          subscription.subscriptionState,
+        );
+
+      return isAwaitingServerUpdate ? 30_000 : false;
+    },
     retry: 1,
   });
 

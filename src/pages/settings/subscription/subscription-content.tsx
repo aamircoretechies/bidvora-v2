@@ -7,9 +7,13 @@ import {
   Upgrade,
 } from '../components';
 import { useSubscription } from '@/hooks/use-subscription';
+import { useAuth } from '@/auth/context/auth-context';
+import { useTrialExpiryRefresh } from '@/hooks/use-trial-expiry-refresh';
 
 export function SubscriptionContent() {
+  const { user } = useAuth();
   const { subscription, loading } = useSubscription();
+  useTrialExpiryRefresh(subscription?.trialEndsAt ?? user?.trialEndsAt);
   const checkoutPending = Boolean(subscription?.checkoutPendingAt);
   const hasNextPayment = Boolean(subscription?.currentPeriodEnd);
 
