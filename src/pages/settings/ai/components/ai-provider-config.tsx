@@ -5,6 +5,7 @@ import { Loader2, RefreshCw, Save, Lock } from 'lucide-react';
 import { RiCheckboxCircleFill, RiCloseCircleFill } from '@remixicon/react';
 import { toast } from 'sonner';
 import { useApiSettings } from '@/hooks/use-api-settings';
+import { isGeminiApiKey } from '@/lib/ai-api-key';
 import type { UpdateSettingsPayload } from '@/services/settings.service';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -45,10 +46,11 @@ const AiProviderConfig = () => {
   const handleKeyChange = (val: string) => {
     setAiApiKey(val);
     setIsDirty(true);
+    const key = val.trim();
     let newModel = llmModel;
-    if (val.startsWith('sk-')) newModel = 'gpt-5.5';
-    else if (val.startsWith('AIza')) newModel = 'gemini-pro';
-    else if (val.startsWith('nvapi-')) newModel = 'nvidia-nemotron';
+    if (key.startsWith('sk-')) newModel = 'gpt-5.5';
+    else if (isGeminiApiKey(key)) newModel = 'gemini-pro';
+    else if (key.startsWith('nvapi-')) newModel = 'nvidia-nemotron';
 
     if (newModel !== llmModel) {
       setLlmModel(newModel);
@@ -67,8 +69,8 @@ const AiProviderConfig = () => {
     }
     if (llmModel === 'gpt-5.5' && !aiApiKey.startsWith('sk-')) {
       setError('GPT-5.5 API Key should start with "sk-"');
-    } else if (llmModel === 'gemini-pro' && !aiApiKey.startsWith('AIza')) {
-      setError('Gemini API Key should start with "AIza"');
+    } else if (llmModel === 'gemini-pro' && !isGeminiApiKey(aiApiKey)) {
+      setError('Gemini API Key should start with "AQ." or "AIza"');
     } else if (llmModel === 'nvidia-nemotron' && !aiApiKey.startsWith('nvapi-')) {
       setError('Nvidia Nemotron API Key should start with "nvapi-"');
     } else {
@@ -84,9 +86,10 @@ const AiProviderConfig = () => {
 
     const payload: UpdateSettingsPayload = { llmModel };
     if (aiApiKey) {
-      if (llmModel === 'gpt-5.5') payload.openaiApiKey = aiApiKey;
-      if (llmModel === 'gemini-pro') payload.geminiApiKey = aiApiKey;
-      if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = aiApiKey;
+      const normalizedAiApiKey = aiApiKey.trim();
+      if (llmModel === 'gpt-5.5') payload.openaiApiKey = normalizedAiApiKey;
+      if (llmModel === 'gemini-pro') payload.geminiApiKey = normalizedAiApiKey;
+      if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = normalizedAiApiKey;
     }
 
     try {
@@ -205,7 +208,7 @@ const AiProviderConfig = () => {
           {!error && (
             <p className="text-xs text-secondary-foreground mt-1">
               {llmModel === 'gpt-5.5' && 'Expects a key starting with "sk-"'}
-              {llmModel === 'gemini-pro' && 'Expects a key starting with "AIza"'}
+              {llmModel === 'gemini-pro' && 'Expects a key starting with "AQ." or "AIza"'}
               {llmModel === 'nvidia-nemotron' && 'Expects a key starting with "nvapi-"'}
             </p>
           )}

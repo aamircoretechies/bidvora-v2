@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { toAbsoluteUrl } from '@/lib/helpers';
+import { isGeminiApiKey } from '@/lib/ai-api-key';
 
 /* ─── Step definitions ──────────────────────────────────────────────── */
 const STEPS = [
@@ -210,9 +211,10 @@ function StepAISetup({
 
   const handleKeyChange = (val: string) => {
     setAiApiKey(val);
-    if (val.startsWith('sk-')) setLlmModel('gpt-5.5');
-    else if (val.startsWith('AIza')) setLlmModel('gemini-pro');
-    else if (val.startsWith('nvapi-')) setLlmModel('nvidia-nemotron');
+    const key = val.trim();
+    if (key.startsWith('sk-')) setLlmModel('gpt-5.5');
+    else if (isGeminiApiKey(key)) setLlmModel('gemini-pro');
+    else if (key.startsWith('nvapi-')) setLlmModel('nvidia-nemotron');
   };
 
   useEffect(() => {
@@ -222,8 +224,8 @@ function StepAISetup({
     }
     if (llmModel === 'gpt-5.5' && !aiApiKey.startsWith('sk-')) {
       setError('GPT-5.5 API Key should start with "sk-"');
-    } else if (llmModel === 'gemini-pro' && !aiApiKey.startsWith('AIza')) {
-      setError('Gemini API Key should start with "AIza"');
+    } else if (llmModel === 'gemini-pro' && !isGeminiApiKey(aiApiKey)) {
+      setError('Gemini API Key should start with "AQ." or "AIza"');
     } else if (llmModel === 'nvidia-nemotron' && !aiApiKey.startsWith('nvapi-')) {
       setError('Nvidia Nemotron API Key should start with "nvapi-"');
     } else {
@@ -286,7 +288,7 @@ function StepAISetup({
           {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           <p className="text-xs text-muted-foreground mt-1">
             {llmModel === 'gpt-5.5' && 'Expects a key starting with "sk-"'}
-            {llmModel === 'gemini-pro' && 'Expects a key starting with "AIza"'}
+            {llmModel === 'gemini-pro' && 'Expects a key starting with "AQ." or "AIza"'}
             {llmModel === 'nvidia-nemotron' && 'Expects a key starting with "nvapi-"'}
           </p>
         </div>
@@ -556,6 +558,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       return;
     }
 
+    const normalizedAiApiKey = aiApiKey.trim();
     setSaving(true);
     try {
       // The API validates all BotConfig fields on every PUT, so we must
@@ -575,12 +578,12 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         maxExistingBids: 1,
       };
 
-      if (llmModel === 'gpt-5.5') payload.openaiApiKey = aiApiKey;
-      if (llmModel === 'gemini-pro') payload.geminiApiKey = aiApiKey;
-      if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = aiApiKey;
+      if (llmModel === 'gpt-5.5') payload.openaiApiKey = normalizedAiApiKey;
+      if (llmModel === 'gemini-pro') payload.geminiApiKey = normalizedAiApiKey;
+      if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = normalizedAiApiKey;
 
       // The backend requires embeddingApiKey for bot operations
-      payload.embeddingApiKey = aiApiKey;
+      payload.embeddingApiKey = normalizedAiApiKey;
 
       await settingsService.updateSettings(payload);
       toast.success('Settings saved successfully');
