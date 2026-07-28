@@ -162,6 +162,7 @@ const CompanyProfile = () => {
   const canCancel =
     subscription.subscriptionState !== 'CANCELLED' &&
     subscription.status !== 'CANCELLED' &&
+    subscription.status !== 'TRIAL' &&
     !checkoutPending &&
     !cancellation;
 

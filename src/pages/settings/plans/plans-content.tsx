@@ -113,6 +113,7 @@ function PlanCard({
   currentPlan,
   pendingPlan,
   checkoutPendingPlan,
+  isTrial,
   isChanging,
   onSelect,
 }: {
@@ -120,6 +121,7 @@ function PlanCard({
   currentPlan?: string;
   pendingPlan?: string | null;
   checkoutPendingPlan?: string;
+  isTrial: boolean;
   isChanging: boolean;
   onSelect: (plan: BillingPlan['plan']) => void;
 }) {
@@ -174,7 +176,7 @@ function PlanCard({
           size="lg"
           variant={isPopular ? 'primary' : 'outline'}
           className="w-full"
-          disabled={isCurrent || isScheduled || isChanging}
+          disabled={isTrial || isCurrent || isScheduled || isChanging}
           onClick={() => onSelect(plan.plan)}
         >
           {isChanging && <Loader2 className="animate-spin" />}
@@ -182,6 +184,8 @@ function PlanCard({
             ? 'Current plan'
             : isScheduled
               ? 'Scheduled plan'
+              : isTrial
+                ? 'Available after trial'
               : isCheckoutPending
                 ? 'Continue checkout'
                 : 'Choose plan'}
@@ -220,6 +224,7 @@ export function PlansContent() {
   const checkoutPendingPlan = subscription?.checkoutPendingAt
     ? subscription.plan
     : undefined;
+  const isTrial = subscription?.status === 'TRIAL';
   const hasCurrentSubscription = Boolean(
     subscription &&
       !subscription.checkoutPendingAt &&
@@ -379,6 +384,15 @@ export function PlansContent() {
         </Alert>
       )}
 
+      {isTrial && (
+        <Alert variant="warning" appearance="light">
+          <AlertIcon>
+            <AlertCircle />
+          </AlertIcon>
+          <AlertTitle>You are on trial period.</AlertTitle>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-7.5">
         {loading || subscriptionLoading
           ? [0, 1].map((item) => (
@@ -403,6 +417,7 @@ export function PlansContent() {
                 currentPlan={currentPlan}
                 pendingPlan={subscription?.pendingPlan}
                 checkoutPendingPlan={checkoutPendingPlan}
+                isTrial={isTrial}
                 isChanging={subscribe.isPending && subscribe.variables === plan.plan}
                 onSelect={handleSelectPlan}
               />
