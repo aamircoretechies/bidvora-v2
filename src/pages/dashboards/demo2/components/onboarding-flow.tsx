@@ -26,6 +26,7 @@ import {
 import { toast } from 'sonner';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { isGeminiApiKey } from '@/lib/ai-api-key';
+import { isFreelancerClientId } from '@/lib/freelancer-oauth';
 
 /* ─── Step definitions ──────────────────────────────────────────────── */
 const STEPS = [
@@ -425,9 +426,11 @@ function StepApiKeys({
 
 /* ─── Step 3 — Connect OAuth ─────────────────────────────────────────── */
 function StepConnect({
+  clientId,
   onComplete,
   onBack,
 }: {
+  clientId: string;
   onComplete: () => void;
   onBack: () => void;
 }) {
@@ -449,7 +452,11 @@ function StepConnect({
         <div className="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-400">
           <strong>Important:</strong> Please ensure you log into Freelancer using the exact same account that generated the API keys.
         </div>
-        <Integrations isFreelancerConnected={false} onConnected={onComplete} />
+        <Integrations
+          isFreelancerConnected={false}
+          freelancerClientId={clientId}
+          onConnected={onComplete}
+        />
       </div>
 
       {/* Actions */}
@@ -557,15 +564,22 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       toast.error('Please enter both Client ID and Client Secret');
       return;
     }
+    if (!isFreelancerClientId(clientId)) {
+      toast.error(
+        'Enter the Freelancer Client ID UUID from your Developer App, not your email address',
+      );
+      return;
+    }
 
     const normalizedAiApiKey = aiApiKey.trim();
+    const normalizedClientId = clientId.trim();
     setSaving(true);
     try {
       // The API validates all BotConfig fields on every PUT, so we must
       // include safe minimum values for fields not yet configured by the user.
       const payload: any = {
         llmModel,
-        clientId,
+        clientId: normalizedClientId,
         clientSecret,
         minBudget: 1,
         maxBudget: 1,
@@ -634,7 +648,11 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             />
           )}
           {step === 3 && (
-            <StepConnect onComplete={onComplete} onBack={() => setStep(2)} />
+            <StepConnect
+              clientId={clientId}
+              onComplete={onComplete}
+              onBack={() => setStep(2)}
+            />
           )}
         </div>
       </div>

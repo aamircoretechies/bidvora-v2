@@ -9,6 +9,8 @@ import { useState, useEffect } from 'react';
 import { freelancerService } from '@/services/freelancer.service';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth/context/auth-context';
+import { settingsService } from '@/services/settings.service';
+import { buildFreelancerAuthorizeUrl } from '@/lib/freelancer-oauth';
 
 interface IIntegrationsItem {
   logo: string;
@@ -19,7 +21,15 @@ interface IIntegrationsItem {
 }
 type IIntegrationsItems = Array<IIntegrationsItem>;
 
-const Integrations = ({ isFreelancerConnected = false, onConnected }: { isFreelancerConnected?: boolean, onConnected?: () => void }) => {
+const Integrations = ({
+  isFreelancerConnected = false,
+  onConnected,
+  freelancerClientId,
+}: {
+  isFreelancerConnected?: boolean;
+  onConnected?: () => void;
+  freelancerClientId?: string;
+}) => {
   const { user } = useAuth();
   const [connected, setConnected] = useState(isFreelancerConnected);
   const [connecting, setConnecting] = useState(false);
@@ -73,13 +83,24 @@ const Integrations = ({ isFreelancerConnected = false, onConnected }: { isFreela
       const response = await freelancerService.getFreelancerAuthorizeUrl();
 
       if (response.success && response.data?.url) {
+        const clientId =
+          freelancerClientId?.trim() ||
+          (await settingsService.getSettings()).data.authConfig.clientId;
+        const redirectUri =
+          import.meta.env.VITE_FREELANCER_REDIRECT_URI ||
+          `${window.location.origin}/callback`;
+        const authorizeUrl = buildFreelancerAuthorizeUrl({
+          clientId,
+          redirectUri,
+          serverAuthorizeUrl: response.data.url,
+        });
         const width = 600;
         const height = 700;
         const left = Math.round(window.screen.width / 2 - width / 2);
         const top = Math.round(window.screen.height / 2 - height / 2);
 
         const popup = window.open(
-          response.data.url,
+          authorizeUrl,
           'freelancer_oauth',
           `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`,
         );
