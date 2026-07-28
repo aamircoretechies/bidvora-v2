@@ -39,9 +39,10 @@ const Manualbid = ({ text, limit, className, onBidPlaced }: IManualbidProps) => 
       await placeBid(id);
       toast.success(`Manual bid placed successfully for Project ID ${id}`);
       setProjectIdInput('');
-      await onBidPlaced?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to place manual bid');
+    } finally {
+      await onBidPlaced?.();
     }
   };
 
@@ -121,7 +122,7 @@ const Manualbid = ({ text, limit, className, onBidPlaced }: IManualbidProps) => 
             onClick={handleSearch}
             disabled={isLoading || !projectIdInput.trim()}
           >
-            {isLoading ? <LoaderCircle className="animate-spin size-4" /> : 'Search'}
+            {isLoading ? <LoaderCircle className="animate-spin size-4" /> : 'Search & Proceed'}
           </Button>
         </div>
         {/*  <div className="flex flex-col gap-5">
