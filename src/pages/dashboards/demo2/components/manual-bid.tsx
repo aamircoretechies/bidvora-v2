@@ -21,9 +21,10 @@ interface IManualbidProps {
   text: string;
   limit?: number;
   className?: string;
+  onBidPlaced?: () => void | Promise<void>;
 }
 
-const Manualbid = ({ text, limit, className }: IManualbidProps) => {
+const Manualbid = ({ text, limit, className, onBidPlaced }: IManualbidProps) => {
   const [projectIdInput, setProjectIdInput] = useState('');
   const { placeBid, isLoading } = useManualBid();
 
@@ -38,6 +39,7 @@ const Manualbid = ({ text, limit, className }: IManualbidProps) => {
       await placeBid(id);
       toast.success(`Manual bid placed successfully for Project ID ${id}`);
       setProjectIdInput('');
+      await onBidPlaced?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to place manual bid');
     }

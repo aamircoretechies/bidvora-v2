@@ -306,6 +306,7 @@ export function Demo2Content() {
   const { settings } = useSettings();
   const isDemo9 = settings?.layout === 'demo9';
   const { data: dashboardData, isLoading, refetch } = useDashboard();
+  const [bidListRefreshKey, setBidListRefreshKey] = useState(0);
 
   const demo9Statistics: IStatisticsItems = [
     { image: 'bid.png', number: '1,200', label: 'Total Bids' },
@@ -331,7 +332,7 @@ export function Demo2Content() {
         <div className="lg:col-span-2 flex flex-col gap-5 lg:gap-5">
 
           {isDemo9 && <Statistics details={demo9Statistics} />}
-          <BiddingTable />
+          <BiddingTable refreshKey={bidListRefreshKey} />
 
         </div>
         <div className="lg:col-span-1 flex flex-col gap-2">
@@ -340,6 +341,7 @@ export function Demo2Content() {
           <Manualbid
             className="h-full mt-4"
             text="Fetches details, generates AI proposal, and places bid immediately."
+            onBidPlaced={() => setBidListRefreshKey((key) => key + 1)}
           />
           {/*  <MyBalance className="h-full" /> */}
         </div>

@@ -186,7 +186,7 @@ function ActionsCell({ row, onRetry }: { row: Row<IBid>; onRetry?: () => void })
   );
 }
 
-const BiddingTable = () => {
+const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
   const { data, totalRecords, fetchBids, isLoading } = useBids();
   const navigate = useNavigate();
 
@@ -276,7 +276,7 @@ const BiddingTable = () => {
     }, 300);
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.pageIndex, pagination.pageSize, appliedFilters]);
+  }, [pagination.pageIndex, pagination.pageSize, appliedFilters, refreshKey]);
 
   // We are handling sorting and filtering server-side now (if the API supports it),
   // but if we need local fallback for data already fetched, we can use filteredData.
