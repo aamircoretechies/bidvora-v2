@@ -108,6 +108,7 @@ export function ResetPasswordPage() {
                       placeholder="your.email@example.com"
                       type="email"
                       autoComplete="email"
+                      maxLength={50}
                       variant="lg"
                       {...field}
                     />

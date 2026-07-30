@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { AlertCircle, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useFreelancerStats } from '@/hooks/use-freelancer-stats';
 import { toAbsoluteUrl } from '@/lib/helpers';
@@ -15,10 +16,20 @@ type IStatisticsItems = Array<IStatisticsItem>;
 
 interface IStatisticsProps {
   details: IStatisticsItem[];
+  refreshKey?: number;
 }
 
-const Statistics = ({ details }: IStatisticsProps) => {
+const Statistics = ({ details, refreshKey = 0 }: IStatisticsProps) => {
   const { data, isFetching, error, refetch } = useFreelancerStats();
+  const previousRefreshKey = useRef(refreshKey);
+
+  useEffect(() => {
+    if (refreshKey === previousRefreshKey.current) return;
+
+    previousRefreshKey.current = refreshKey;
+    void refetch();
+  }, [refreshKey, refetch]);
+
   const values = [data?.totalBids, data?.successfulBids, data?.actionRequired];
   const stats = details.map((item, index) => ({
     ...item,

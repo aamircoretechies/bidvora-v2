@@ -1,9 +1,14 @@
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useBillingHistory } from '@/hooks/use-billing-history';
+import { useSubscription } from '@/hooks/use-subscription';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import type {
   BillingEvent,
   BillingEventStatus,
+} from '@/services/billing.service';
+import {
+  formatBillingEventAmount,
+  resolveBillingEventCurrency,
 } from '@/services/billing.service';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +51,15 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-function DetailValue({ item, field }: { item: BillingEvent; field: string }) {
+function DetailValue({
+  item,
+  field,
+  subscriptionCurrency,
+}: {
+  item: BillingEvent;
+  field: string;
+  subscriptionCurrency?: string | null;
+}) {
   if (field === 'status') {
     return (
       <Badge
@@ -72,7 +85,7 @@ function DetailValue({ item, field }: { item: BillingEvent; field: string }) {
       <img
         src={toAbsoluteUrl(logo)}
         alt={`${humanize(provider)} logo`}
-        className="h-5 max-w-28 object-contain object-left"
+        className="h-7 max-w-32 rounded bg-white px-2 py-1 object-contain object-left"
       />
     ) : (
       <>{provider ? humanize(provider) : 'Not available'}</>
@@ -84,8 +97,10 @@ function DetailValue({ item, field }: { item: BillingEvent; field: string }) {
     type: humanize(item.type),
     plan: humanize(item.plan),
     date: formatDate(item.createdAt),
-    currency: item.currency.toUpperCase(),
-    amount: item.displayAmount,
+    currency:
+      resolveBillingEventCurrency(item, subscriptionCurrency) ||
+      'Not available',
+    amount: formatBillingEventAmount(item, subscriptionCurrency),
     amountCents:
       item.amountCents == null
         ? 'Not available'
@@ -96,6 +111,7 @@ function DetailValue({ item, field }: { item: BillingEvent; field: string }) {
 }
 
 const LatestPayment = () => {
+  const { subscription } = useSubscription();
   const { data, isLoading, isFetching, error, refetch } = useBillingHistory({
     page: 1,
     limit: 1,
@@ -163,7 +179,11 @@ const LatestPayment = () => {
                     {detail.label}
                   </TableCell>
                   <TableCell className="py-0 pb-2 text-sm font-medium text-foreground">
-                    <DetailValue item={payment} field={detail.field} />
+                    <DetailValue
+                      item={payment}
+                      field={detail.field}
+                      subscriptionCurrency={subscription?.billingCurrency}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

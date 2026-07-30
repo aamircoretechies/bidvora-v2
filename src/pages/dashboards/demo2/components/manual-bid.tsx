@@ -21,10 +21,17 @@ interface IManualbidProps {
   text: string;
   limit?: number;
   className?: string;
+  disabled?: boolean;
   onBidPlaced?: () => void | Promise<void>;
 }
 
-const Manualbid = ({ text, limit, className, onBidPlaced }: IManualbidProps) => {
+const Manualbid = ({
+  text,
+  limit,
+  className,
+  disabled = false,
+  onBidPlaced,
+}: IManualbidProps) => {
   const [projectIdInput, setProjectIdInput] = useState('');
   const { placeBid, isLoading } = useManualBid();
 
@@ -115,12 +122,12 @@ const Manualbid = ({ text, limit, className, onBidPlaced }: IManualbidProps) => 
             value={projectIdInput}
             onChange={(e) => setProjectIdInput(e.target.value)}
             className="rounded-r-none border-r-0 focus:ring-0 focus:ring-offset-0"
-            disabled={isLoading}
+            disabled={isLoading || disabled}
           />
           <Button 
             className="rounded-l-none border-l-0" 
             onClick={handleSearch}
-            disabled={isLoading || !projectIdInput.trim()}
+            disabled={isLoading || disabled || !projectIdInput.trim()}
           >
             {isLoading ? <LoaderCircle className="animate-spin size-4" /> : 'Search & Proceed'}
           </Button>

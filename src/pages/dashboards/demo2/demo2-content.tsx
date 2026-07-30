@@ -2,7 +2,9 @@ import { Fragment, useState } from 'react';
 import { useBot } from '@/hooks/use-bot';
 import { useChatBot } from '@/hooks/use-chat-bot';
 import { useDashboard } from '@/hooks/use-dashboard';
-import { LoaderCircle } from 'lucide-react';
+import { usePlanExpiry } from '@/hooks/use-plan-expiry';
+import { AlertTriangle, LoaderCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   BlockList,
   ReportSettings,
@@ -13,9 +15,17 @@ import { useSettings } from '@/providers/settings-provider';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  Alert,
+  AlertContent,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+  AlertToolbar,
+} from '@/components/ui/alert';
 import { Gavel, MessageCircle } from 'lucide-react';
 
-function BidBanner() {
+function BidBanner({ planExpired = false }: { planExpired?: boolean }) {
   const {
     startBot,
     stopBot,
@@ -28,7 +38,8 @@ function BidBanner() {
 
   const isFetching = action === 'fetching';
   const isLoading = action !== null; // covers fetching + starting + stopping
-  const isEligible = biddingState?.biddingEligible ?? true;
+  const isEligible =
+    !planExpired && (biddingState?.biddingEligible ?? true);
 
   return (
     <Fragment>
@@ -160,7 +171,7 @@ function BidBanner() {
     </Fragment>
   );
 }
-function ChatBanner() {
+function ChatBanner({ planExpired = false }: { planExpired?: boolean }) {
   const {
     startChatBot,
     stopChatBot,
@@ -173,7 +184,8 @@ function ChatBanner() {
 
   const isFetching = action === 'fetching';
   const isLoading = action !== null;
-  const isEligible = agentState?.chatEligible ?? true;
+  const isEligible =
+    !planExpired && (agentState?.chatEligible ?? true);
 
   return (
     <Fragment>
@@ -306,7 +318,8 @@ export function Demo2Content() {
   const { settings } = useSettings();
   const isDemo9 = settings?.layout === 'demo9';
   const { data: dashboardData, isLoading, refetch } = useDashboard();
-  const [bidListRefreshKey, setBidListRefreshKey] = useState(0);
+  const planExpired = usePlanExpiry();
+  const [bidDataRefreshKey, setBidDataRefreshKey] = useState(0);
 
   const demo9Statistics: IStatisticsItems = [
     { image: 'bid.png', number: '1,200', label: 'Total Bids' },
@@ -328,20 +341,47 @@ export function Demo2Content() {
       <div className="grid lg:grid-cols-3 gap-y-5 lg:gap-7.5 items-start">
         <div className="lg:col-span-3 flex flex-col gap-5 lg:gap-5">
           <Integrations isFreelancerConnected={dashboardData?.isFreelancerConnected ?? false} onConnected={() => refetch()} />
+          {planExpired && (
+            <Alert variant="warning" appearance="light" size="lg">
+              <AlertIcon>
+                <AlertTriangle />
+              </AlertIcon>
+              <AlertContent className="grow">
+                <AlertTitle>Your plan has expired</AlertTitle>
+                <AlertDescription>
+                  Renew your plan to continue using bidding and chat features.
+                </AlertDescription>
+              </AlertContent>
+              <AlertToolbar className="flex items-center">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/settings/plans">Renew Now</Link>
+                </Button>
+              </AlertToolbar>
+            </Alert>
+          )}
         </div>
         <div className="lg:col-span-2 flex flex-col gap-5 lg:gap-5">
 
-          {isDemo9 && <Statistics details={demo9Statistics} />}
-          <BiddingTable refreshKey={bidListRefreshKey} />
+          {isDemo9 && (
+            <Statistics
+              details={demo9Statistics}
+              refreshKey={bidDataRefreshKey}
+            />
+          )}
+          <BiddingTable
+            refreshKey={bidDataRefreshKey}
+            retryDisabled={planExpired}
+          />
 
         </div>
         <div className="lg:col-span-1 flex flex-col gap-2">
-          {isDemo9 && <BidBanner />}
-          {isDemo9 && <ChatBanner />}
+          {isDemo9 && <BidBanner planExpired={planExpired} />}
+          {isDemo9 && <ChatBanner planExpired={planExpired} />}
           <Manualbid
             className="h-full mt-4"
             text="Fetches details, generates AI proposal, and places bid immediately."
-            onBidPlaced={() => setBidListRefreshKey((key) => key + 1)}
+            disabled={planExpired}
+            onBidPlaced={() => setBidDataRefreshKey((key) => key + 1)}
           />
           {/*  <MyBalance className="h-full" /> */}
         </div>

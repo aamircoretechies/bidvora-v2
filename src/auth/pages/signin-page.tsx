@@ -226,7 +226,12 @@ export function SignInPage() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input variant="lg" placeholder="Your email" {...field} />
+                <Input
+                  variant="lg"
+                  placeholder="Your email"
+                  maxLength={50}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -246,6 +251,8 @@ export function SignInPage() {
                 <Input
                   placeholder="Your password"
                   type={passwordVisible ? 'text' : 'password'} // Toggle input type
+                  maxLength={50}
+                  className="pr-10"
                   {...field}
                  variant="lg"
               

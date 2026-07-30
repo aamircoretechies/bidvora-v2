@@ -8,11 +8,13 @@ export const getSignupSchema = () => {
     email: z
       .string()
       .email({ message: 'Please enter a valid email address.' })
-      .min(1, { message: 'Email is required.' }),
+      .min(1, { message: 'Email is required.' })
+      .max(50, { message: 'Email must be 50 characters or fewer.' }),
 
     password: z
       .string()
       .min(8, { message: 'Password must be at least 8 characters.' })
+      .max(50, { message: 'Password must be 50 characters or fewer.' })
       .regex(/[A-Z]/, {
         message: 'Password must contain at least one uppercase letter.',
       })
@@ -29,7 +31,8 @@ export const getSignupSchema = () => {
 
     confirmPassword: z
       .string()
-      .min(1, { message: 'Please confirm your password.' }),
+      .min(1, { message: 'Please confirm your password.' })
+      .max(50, { message: 'Password must be 50 characters or fewer.' }),
     terms: z.boolean().refine((val) => val === true, {
       message: 'You must agree to the terms and conditions.',
     }),

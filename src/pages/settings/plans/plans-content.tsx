@@ -345,7 +345,7 @@ export function PlansContent() {
         <CardContent>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-24 items-center justify-center rounded-lg border bg-background px-3">
+              <div className="flex h-10 w-24 items-center justify-center rounded-lg border bg-white px-3">
                 {providerLogo ? (
                   <img
                     src={toAbsoluteUrl(providerLogo)}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
 const ApiKeys = ({ data, onChange }: { data?: any, onChange?: (field: string, val: any) => void }) => {
-  const [showSecret, setShowSecret] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefreshConnection = async () => {
@@ -57,23 +56,12 @@ const ApiKeys = ({ data, onChange }: { data?: any, onChange?: (field: string, va
         </div>
         <div className="grid gap-1.5">
           <Label className="text-sm font-medium text-secondary-foreground">Client Secret</Label>
-          <div className="relative">
-            <Input
-              type={showSecret ? 'text' : 'password'}
-              value={data?.clientSecret || ''}
-              onChange={(e) => onChange?.('clientSecret', e.target.value)}
-              className="font-mono text-sm pe-10"
-            />
-            <Button
-              variant="ghost"
-              mode="icon"
-              size="sm"
-              className="absolute end-1 top-1/2 -translate-y-1/2 h-7 w-7"
-              onClick={() => setShowSecret(!showSecret)}
-            >
-              {showSecret ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </Button>
-          </div>
+          <Input
+            type="password"
+            value={data?.clientSecret || ''}
+            onChange={(e) => onChange?.('clientSecret', e.target.value)}
+            className="font-mono text-sm"
+          />
         </div>
         <Button
           variant="primary"

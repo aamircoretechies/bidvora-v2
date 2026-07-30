@@ -6,7 +6,8 @@ export const getResetRequestSchema = () => {
     email: z
       .string()
       .email({ message: 'Please enter a valid email address.' })
-      .min(1, { message: 'Email is required.' }),
+      .min(1, { message: 'Email is required.' })
+      .max(50, { message: 'Email must be 50 characters or fewer.' }),
   });
 };
 
@@ -17,6 +18,7 @@ export const getNewPasswordSchema = () => {
       password: z
         .string()
         .min(6, { message: 'Password must be at least 6 characters.' })
+        .max(50, { message: 'Password must be 50 characters or fewer.' })
         .regex(/[A-Z]/, {
           message: 'Password must contain at least one uppercase letter.',
         })
@@ -25,7 +27,8 @@ export const getNewPasswordSchema = () => {
         }),
       confirmPassword: z
         .string()
-        .min(1, { message: 'Please confirm your password.' }),
+        .min(1, { message: 'Please confirm your password.' })
+        .max(50, { message: 'Password must be 50 characters or fewer.' }),
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: "Passwords don't match",

@@ -192,6 +192,8 @@ export function ChangePasswordPage() {
                       placeholder="Create a strong password"
                       type={passwordVisible ? 'text' : 'password'}
                       autoComplete="new-password"
+                      maxLength={50}
+                      className="pr-10"
                       {...field}
                       variant="lg"
                     />
@@ -225,6 +227,8 @@ export function ChangePasswordPage() {
                       placeholder="Verify your password"
                       type={confirmPasswordVisible ? 'text' : 'password'}
                       autoComplete="new-password"
+                      maxLength={50}
+                      className="pr-10"
                       {...field}
                       variant="lg"
                     />

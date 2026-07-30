@@ -29,6 +29,18 @@ type BiddingSettingsForm = Pick<AuthConfig, 'clientId' | 'clientSecret'> &
     | 'maxExistingBids'
   >;
 
+const nonNegativeNumberFields = new Set<keyof BiddingSettingsForm>([
+  'minBudget',
+  'maxBudget',
+  'minHourlyRate',
+  'maxHourlyRate',
+  'bidFactorPercent',
+  'hourlyPrice',
+  'dailyBidLimit',
+  'maxBidsPerCycle',
+  'maxExistingBids',
+]);
+
 export function BiddingContent() {
   const {
     settings,
@@ -68,7 +80,13 @@ export function BiddingContent() {
 
   const handleChange = (field: string, value: unknown) => {
     const typedField = field as keyof BiddingSettingsForm;
-    setData((current) => ({ ...current, [typedField]: value }));
+    const sanitizedValue = nonNegativeNumberFields.has(typedField)
+      ? typeof value === 'number' && Number.isFinite(value)
+        ? Math.max(0, value)
+        : 0
+      : value;
+
+    setData((current) => ({ ...current, [typedField]: sanitizedValue }));
     setDirtyFields((current) => {
       const next = new Set(current);
       next.add(typedField);
@@ -79,6 +97,19 @@ export function BiddingContent() {
   const handleSave = async () => {
     if (dirtyFields.size === 0) {
       toast.info('No configuration changes to save');
+      return;
+    }
+
+    const hasInvalidNumber = [...nonNegativeNumberFields].some((field) => {
+      const value = data[field];
+      return (
+        value !== undefined &&
+        (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
+      );
+    });
+
+    if (hasInvalidNumber) {
+      toast.error('Numerical settings must be valid non-negative values');
       return;
     }
 

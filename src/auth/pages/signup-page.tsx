@@ -186,6 +186,7 @@ export function SignUpPage() {
                 <Input
                   placeholder="Your email address"
                   type="email"
+                  maxLength={50}
                   {...field}
                   variant="lg"
                 />
@@ -209,6 +210,8 @@ export function SignUpPage() {
                 <Input
                   placeholder="Create a password"
                   type={passwordVisible ? 'text' : 'password'}
+                  maxLength={50}
+                  className="pr-10"
                   {...field}
                   variant="lg"
                 />
@@ -242,6 +245,8 @@ export function SignUpPage() {
                 <Input
                   placeholder="Confirm your password"
                   type={confirmPasswordVisible ? 'text' : 'password'}
+                  maxLength={50}
+                  className="pr-10"
                   {...field}
                   variant="lg"
                 />

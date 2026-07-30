@@ -207,6 +207,45 @@ export interface BillingEvent {
   status: BillingEventStatus;
 }
 
+export function resolveBillingEventCurrency(
+  event: BillingEvent,
+  subscriptionCurrency?: string | null,
+): string {
+  const eventCurrency = event.currency?.trim().toUpperCase();
+  const fallbackCurrency = subscriptionCurrency?.trim().toUpperCase();
+
+  if (event.status === 'setup' && event.amountCents == null && fallbackCurrency) {
+    return fallbackCurrency;
+  }
+
+  return eventCurrency || fallbackCurrency || '';
+}
+
+export function formatBillingEventAmount(
+  event: BillingEvent,
+  subscriptionCurrency?: string | null,
+): string {
+  const currency = resolveBillingEventCurrency(event, subscriptionCurrency);
+  const shouldFormatFromMinorUnits = event.amountCents != null;
+  const shouldFormatSetupPlaceholder =
+    event.status === 'setup' &&
+    event.amountCents == null &&
+    Boolean(subscriptionCurrency);
+
+  if (currency && (shouldFormatFromMinorUnits || shouldFormatSetupPlaceholder)) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+      }).format((event.amountCents ?? 0) / 100);
+    } catch {
+      // Fall back to the API display value for an unsupported currency code.
+    }
+  }
+
+  return event.displayAmount;
+}
+
 export interface BillingHistoryParams {
   page?: number;
   limit?: number;

@@ -5,12 +5,8 @@ import { RiCheckboxCircleFill, RiCloseCircleFill } from '@remixicon/react';
 import {
   ColumnDef,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   PaginationState,
   Row,
-  SortingState,
   useReactTable,
 } from '@tanstack/react-table';
 import {
@@ -40,7 +36,6 @@ import {
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataGrid, useDataGrid } from '@/components/ui/data-grid';
-import { DataGridColumnHeader } from '@/components/ui/data-grid-column-header';
 import { DataGridColumnVisibility } from '@/components/ui/data-grid-column-visibility';
 import { DataGridPagination } from '@/components/ui/data-grid-pagination';
 import {
@@ -71,7 +66,15 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { QuestionsModal } from './questions-modal';
 
-function ActionsCell({ row, onRetry }: { row: Row<IBid>; onRetry?: () => void }) {
+function ActionsCell({
+  row,
+  onRetry,
+  retryDisabled = false,
+}: {
+  row: Row<IBid>;
+  onRetry?: () => void;
+  retryDisabled?: boolean;
+}) {
   const navigate = useNavigate();
   const { copyToClipboard } = useCopyToClipboard();
   const [isRetrying, setIsRetrying] = useState(false);
@@ -159,7 +162,7 @@ function ActionsCell({ row, onRetry }: { row: Row<IBid>; onRetry?: () => void })
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleRetry}
-              disabled={isRetrying}
+              disabled={isRetrying || retryDisabled}
               className="gap-2"
             >
               {isRetrying ? (
@@ -171,10 +174,6 @@ function ActionsCell({ row, onRetry }: { row: Row<IBid>; onRetry?: () => void })
             </DropdownMenuItem>
           </>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={() => { }}>
-          Withdraw Bid
-        </DropdownMenuItem>
       </DropdownMenuContent>
       <QuestionsModal
         open={isQuestionsModalOpen}
@@ -186,7 +185,13 @@ function ActionsCell({ row, onRetry }: { row: Row<IBid>; onRetry?: () => void })
   );
 }
 
-const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
+const BiddingTable = ({
+  refreshKey = 0,
+  retryDisabled = false,
+}: {
+  refreshKey?: number;
+  retryDisabled?: boolean;
+}) => {
   const { data, totalRecords, fetchBids, isLoading } = useBids();
   const navigate = useNavigate();
 
@@ -194,9 +199,6 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
     pageIndex: 0,
     pageSize: 10,
   });
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: 'time', desc: true },
-  ]);
   const [appliedFilters, setAppliedFilters] = useState({
     search: '',
     status: '',
@@ -303,11 +305,9 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
       {
         accessorKey: 'id',
         accessorFn: (row) => row.id,
-        header: ({ column }) => (
-          <DataGridColumnHeader title="#" column={column} />
-        ),
+        header: '#',
         cell: ({ row }) => <span>{row.original.id}</span>,
-        enableSorting: true,
+        enableSorting: false,
         enableHiding: false,
         enableResizing: false,
         size: 51,
@@ -318,9 +318,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
       {
         id: 'time',
         accessorFn: (row) => row.createdAt,
-        header: ({ column }) => (
-          <DataGridColumnHeader title="Time" column={column} />
-        ),
+        header: 'Time',
         cell: ({ row }) => {
           const dateObj = new Date(row.original.createdAt);
 
@@ -346,7 +344,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
             </div>
           );
         },
-        enableSorting: true,
+        enableSorting: false,
         size: 120,
         meta: {
           cellClassName: '',
@@ -355,9 +353,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
       {
         id: 'project',
         accessorFn: (row) => row.title,
-        header: ({ column }) => (
-          <DataGridColumnHeader title="Project" column={column} />
-        ),
+        header: 'Project',
         cell: ({ row }) => (
           <button
             type="button"
@@ -372,7 +368,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
             </span>
           </button>
         ),
-        enableSorting: true,
+        enableSorting: false,
         size: 300,
         meta: {
           cellClassName: '',
@@ -381,9 +377,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
       {
         id: 'bidAmountType',
         accessorFn: (row) => `${row.amount} / ${row.bidType}`,
-        header: ({ column }) => (
-          <DataGridColumnHeader title="Bid Amount / Type" column={column} />
-        ),
+        header: 'Bid Amount / Type',
         cell: ({ row }) => {
           const type = row.original.bidType?.toLowerCase() || '';
           let badgeClass = 'bg-primary text-primary-foreground';
@@ -403,7 +397,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
             </div>
           );
         },
-        enableSorting: true,
+        enableSorting: false,
         size: 200,
         meta: {
           cellClassName: '',
@@ -412,9 +406,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
       {
         id: 'status',
         accessorFn: (row) => row.status,
-        header: ({ column }) => (
-          <DataGridColumnHeader title="Status" column={column} />
-        ),
+        header: 'Status',
         cell: ({ row }) => {
           const statusStr = row.original.status?.toLowerCase() || '';
           let variant: 'success' | 'destructive' | 'warning' | 'secondary' = 'secondary';
@@ -455,7 +447,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
             </div>
           );
         },
-        enableSorting: true,
+        enableSorting: false,
         size: 150,
         meta: {
           cellClassName: '',
@@ -467,6 +459,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
         cell: ({ row }) => (
           <ActionsCell
             row={row}
+            retryDisabled={retryDisabled}
             onRetry={() =>
               fetchBids({
                 page: pagination.pageIndex + 1,
@@ -482,7 +475,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
         },
       },
     ],
-    [navigate],
+    [navigate, retryDisabled],
   );
 
   const pageCount = pagination.pageSize > 0 && totalRecords > 0
@@ -495,15 +488,12 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
     pageCount,
     getRowId: (row: IBid) => String(row.id),
     manualPagination: true,
-    manualSorting: true,
     manualFiltering: true,
     state: {
       pagination,
-      sorting,
       columnPinning: { right: ['actions'] },
     },
     onPaginationChange: setPagination,
-    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -515,7 +505,7 @@ const BiddingTable = ({ refreshKey = 0 }: { refreshKey?: number }) => {
       isLoading={isLoading}
       tableLayout={{
         columnsPinnable: true,
-        columnsMovable: true,
+        columnsMovable: false,
         columnsVisibility: true,
         cellBorder: true,
       }}

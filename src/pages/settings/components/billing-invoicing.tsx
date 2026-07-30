@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { AlertCircle, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { useBillingHistory } from '@/hooks/use-billing-history';
+import { useSubscription } from '@/hooks/use-subscription';
 import type {
   BillingEvent,
   BillingEventStatus,
 } from '@/services/billing.service';
+import { formatBillingEventAmount } from '@/services/billing.service';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,6 +70,7 @@ function BillingRowsSkeleton() {
 
 const BillingInvoicing = () => {
   const [page, setPage] = useState(1);
+  const { subscription } = useSubscription();
   const { data, isLoading, isFetching, error, refetch } = useBillingHistory({
     page,
     limit: PAGE_SIZE,
@@ -148,7 +151,10 @@ const BillingInvoicing = () => {
                       {formatDate(item.createdAt)}
                     </TableCell>
                     <TableCell className="text-end text-sm font-medium text-foreground">
-                      {item.displayAmount}
+                      {formatBillingEventAmount(
+                        item,
+                        subscription?.billingCurrency,
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

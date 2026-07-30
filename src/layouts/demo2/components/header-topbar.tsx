@@ -1,9 +1,9 @@
 import { StoreClientTopbar } from '@/pages/store-client/components/common/topbar';
 import { SearchDialog } from '@/partials/dialogs/search/search-dialog';
 import { ChatSheet } from '@/partials/topbar/chat-sheet';
-import { NotificationsSheet } from '@/partials/topbar/notifications-sheet';
+// import { NotificationsSheet } from '@/partials/topbar/notifications-sheet';
 import { UserDropdownMenu } from '@/partials/topbar/user-dropdown-menu';
-import { MessageCircleMore, MessageSquareDot, Search } from 'lucide-react';
+import { MessageCircleMore, Search } from 'lucide-react';
 import { useLocation } from 'react-router';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ export function HeaderTopbar() {
                 </Button>
               }
             />
-            <NotificationsSheet
+            {/* <NotificationsSheet
               trigger={
                 <Button
                   variant="ghost"
@@ -54,7 +54,7 @@ export function HeaderTopbar() {
                   <MessageSquareDot className="size-4.5!" />
                 </Button>
               }
-            />
+            /> */}
           </div>
           <UserDropdownMenu
             trigger={

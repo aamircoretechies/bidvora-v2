@@ -33,7 +33,7 @@ export function HeaderTopbar() {
               }
             /> */}
 
-            <NotificationsSheet
+            {/* <NotificationsSheet
               trigger={
                 <Button
                   variant="ghost"
@@ -44,7 +44,7 @@ export function HeaderTopbar() {
                   <BellIcon className="size-4.5!" />
                 </Button>
               }
-            />
+            /> */}
 
             <div className="border-e border-border h-5"></div>
 
