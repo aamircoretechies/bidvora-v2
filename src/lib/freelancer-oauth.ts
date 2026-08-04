@@ -1,5 +1,4 @@
-const FREELANCER_AUTHORIZE_URL =
-  'https://accounts.freelancer.com/oauth/authorize';
+const FREELANCER_ACCOUNTS_ORIGIN = 'https://accounts.freelancer.com';
 
 export const DEFAULT_FREELANCER_REDIRECT_URI =
   'https://bidvora.coretechiestest.org/callback';
@@ -26,18 +25,28 @@ export const buildFreelancerAuthorizeUrl = ({
     );
   }
 
-  const state = new URL(serverAuthorizeUrl).searchParams.get('state');
+  const authorizeUrl = new URL(serverAuthorizeUrl);
+
+  if (authorizeUrl.origin !== FREELANCER_ACCOUNTS_ORIGIN) {
+    throw new Error('Invalid Freelancer authorization URL');
+  }
+
+  const state = authorizeUrl.searchParams.get('state');
   if (!state) {
     throw new Error('Freelancer authorization state is missing');
   }
 
-  const authorizeUrl = new URL(FREELANCER_AUTHORIZE_URL);
+  // Keep the backend-generated URL intact so state, advanced scopes, and any
+  // future OAuth security parameters are not lost. Force a fresh login rather
+  // than Freelancer's remembered-account picker, whose "different account"
+  // action can be disabled when only one session is cached.
   authorizeUrl.searchParams.set('response_type', 'code');
   authorizeUrl.searchParams.set('client_id', normalizedClientId);
   authorizeUrl.searchParams.set('redirect_uri', redirectUri);
-  authorizeUrl.searchParams.set('scope', 'basic');
-  authorizeUrl.searchParams.set('prompt', 'select_account consent');
-  authorizeUrl.searchParams.set('state', state);
+  if (!authorizeUrl.searchParams.has('scope')) {
+    authorizeUrl.searchParams.set('scope', 'basic');
+  }
+  authorizeUrl.searchParams.set('prompt', 'login consent');
 
   return authorizeUrl.toString();
 };

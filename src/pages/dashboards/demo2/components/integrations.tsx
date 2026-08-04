@@ -101,7 +101,7 @@ const Integrations = ({
 
         const popup = window.open(
           authorizeUrl,
-          'freelancer_oauth',
+          `freelancer_oauth_${Date.now()}`,
           `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`,
         );
 
