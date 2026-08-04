@@ -13,7 +13,7 @@ export interface IBid {
   bidType: string;
   country: string;
   skills: string;
-  error?: string;
+  error?: string | null;
   questions?: string;
   createdAt: string;
 }
@@ -44,6 +44,68 @@ export interface GetBidsParams {
   limit?: number;
 }
 
+interface RetryBidApiResponse {
+  success: boolean;
+  data?: null | Partial<IBid> | { bid?: Partial<IBid> };
+  error?: string | { message?: string; code?: string } | null;
+  meta?: { message?: string };
+}
+
+export interface RetryBidResult {
+  success: boolean;
+  status: string;
+  error: string | null;
+  message: string;
+  bid?: Partial<IBid>;
+}
+
+function readApiError(
+  value: RetryBidApiResponse['error'] | IBid['error'],
+): string | null {
+  if (typeof value === 'string') return value.trim() || null;
+  if (value && typeof value === 'object' && 'message' in value) {
+    const message = value.message;
+    return typeof message === 'string' ? message.trim() || null : null;
+  }
+  return null;
+}
+
+function normalizeRetryBidResponse(
+  response: RetryBidApiResponse,
+): RetryBidResult {
+  const data = response.data;
+  const bid =
+    data && typeof data === 'object' && 'bid' in data && data.bid
+      ? data.bid
+      : data && typeof data === 'object'
+        ? (data as Partial<IBid>)
+        : undefined;
+  const apiError = readApiError(response.error) || readApiError(bid?.error);
+  const apiStatus = typeof bid?.status === 'string' ? bid.status.trim() : '';
+  const apiIndicatesFailure = [
+    'failed',
+    'failure',
+    'rejected',
+    'error',
+  ].includes(apiStatus.toLowerCase());
+  const status =
+    !response.success || apiError || apiIndicatesFailure
+      ? 'failed'
+      : apiStatus || 'success';
+  const success = response.success && !apiError && !apiIndicatesFailure;
+
+  return {
+    success,
+    status,
+    error: apiError,
+    message:
+      response.meta?.message ||
+      apiError ||
+      (success ? 'Bid retried successfully!' : 'Failed to retry bid'),
+    bid,
+  };
+}
+
 export const bidsService = {
   /**
    * GET /bids
@@ -58,8 +120,10 @@ export const bidsService = {
       if (params.country) query.append('country', params.country);
       if (params.skill) query.append('skill', params.skill);
       if (params.date) query.append('date', params.date);
-      if (params.page !== undefined) query.append('page', params.page.toString());
-      if (params.limit !== undefined) query.append('limit', params.limit.toString());
+      if (params.page !== undefined)
+        query.append('page', params.page.toString());
+      if (params.limit !== undefined)
+        query.append('limit', params.limit.toString());
     }
 
     const qs = query.toString();
@@ -78,7 +142,9 @@ export const bidsService = {
    * POST /bids/manual
    * Places a manual bid on a project
    */
-  async placeManualBid(projectId: number): Promise<{ success: boolean; data: any; meta?: any }> {
+  async placeManualBid(
+    projectId: number,
+  ): Promise<{ success: boolean; data: any; meta?: any }> {
     const response = (await api.post('/bids/manual', { projectId })) as any;
 
     if (!response.success) {
@@ -92,17 +158,12 @@ export const bidsService = {
    * POST /bids/{id}/retry
    * Retries placing a failed bid
    */
-  async retryBid(id: number): Promise<{ success: boolean; data: null; meta?: { message?: string } }> {
-    const response = (await api.post(`/bids/${id}/retry`, {})) as {
-      success: boolean;
-      data: null;
-      meta?: { message?: string };
-    };
+  async retryBid(id: number): Promise<RetryBidResult> {
+    const response = (await api.post(
+      `/bids/${id}/retry`,
+      {},
+    )) as RetryBidApiResponse;
 
-    if (!response.success) {
-      throw new Error('Failed to retry bid');
-    }
-
-    return response;
+    return normalizeRetryBidResponse(response);
   },
 };

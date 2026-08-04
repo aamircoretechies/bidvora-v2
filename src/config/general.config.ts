@@ -1,10 +1,15 @@
+const publicWebsiteUrl = (
+  import.meta.env.VITE_PUBLIC_WEBSITE_URL || 'https://bidvoraai.vercel.app'
+).replace(/\/+$/, '');
+
 const generalSettings = {
-  purchase: 'https://bidvoraai.vercel.app/#pricing',
-  pp: 'https://bidvoraai.vercel.app/privacy-policy',
-  terms: 'https://bidvoraai.vercel.app/terms',
-  support: 'https://bidvoraai.vercel.app/contact',
-  faq: 'https://bidvoraai.vercel.app/#faq',
-  about: 'https://bidvoraai.vercel.app/',
+  website: `${publicWebsiteUrl}/`,
+  purchase: `${publicWebsiteUrl}/#pricing`,
+  pp: `${publicWebsiteUrl}/privacy-policy`,
+  terms: `${publicWebsiteUrl}/terms`,
+  support: `${publicWebsiteUrl}/contact`,
+  faq: `${publicWebsiteUrl}/#faq`,
+  about: `${publicWebsiteUrl}/`,
 };
 
 export { generalSettings };

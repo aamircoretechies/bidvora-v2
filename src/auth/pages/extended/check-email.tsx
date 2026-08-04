@@ -46,7 +46,7 @@ const CheckEmail = () => {
           {user?.email || 'your email'}
         </span>
         <br />
-        to verify your account. Check spam box as well. Thank you
+        to verify your account. Check spam box as well.
       </div>
 
      {/*  <div className="flex justify-center mb-5">
@@ -72,6 +72,12 @@ const CheckEmail = () => {
         {message && (
           <span className="text-xs text-muted-foreground">{message}</span>
         )}
+        <Link
+          to="/auth/signin"
+          className="mt-3 text-sm font-semibold text-primary hover:underline"
+        >
+          Login to another account
+        </Link>
       </div>
     </>
   );

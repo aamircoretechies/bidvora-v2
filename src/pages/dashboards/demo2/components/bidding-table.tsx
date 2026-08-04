@@ -60,7 +60,11 @@ import {
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { FiltersSheet } from './filters-sheet';
-import { IBid, bidsService } from '@/services/bids.service';
+import {
+  IBid,
+  RetryBidResult,
+  bidsService,
+} from '@/services/bids.service';
 import { useBids } from '@/hooks/use-bids';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
@@ -72,7 +76,7 @@ function ActionsCell({
   retryDisabled = false,
 }: {
   row: Row<IBid>;
-  onRetry?: () => void;
+  onRetry?: (result: RetryBidResult) => void;
   retryDisabled?: boolean;
 }) {
   const navigate = useNavigate();
@@ -105,26 +109,35 @@ function ActionsCell({
     setIsRetrying(true);
     try {
       const result = await bidsService.retryBid(row.original.id);
-      const message = result.meta?.message ?? 'Bid retried successfully!';
+      onRetry?.(result);
       toast.custom(
         (t) => (
           <Alert
             variant="mono"
-            icon="success"
+            icon={result.success ? 'success' : 'destructive'}
             close={false}
             onClose={() => toast.dismiss(t)}
           >
             <AlertIcon>
-              <RiCheckboxCircleFill />
+              {result.success ? (
+                <RiCheckboxCircleFill />
+              ) : (
+                <RiCloseCircleFill />
+              )}
             </AlertIcon>
-            <AlertTitle>{message}</AlertTitle>
+            <AlertTitle>{result.message}</AlertTitle>
           </Alert>
         ),
         { position: 'top-center' },
       );
-      onRetry?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to retry bid';
+      onRetry?.({
+        success: false,
+        status: 'failed',
+        error: message,
+        message,
+      });
       toast.custom(
         (t) => (
           <Alert
@@ -157,7 +170,9 @@ function ActionsCell({
         <DropdownMenuItem onClick={() => navigate(`/bids/${row.original.id}`, { state: { bid: row.original } })}>View Details</DropdownMenuItem>
         <DropdownMenuItem onClick={handleCopyId}>Copy ID</DropdownMenuItem>
         <DropdownMenuItem onClick={() => setIsQuestionsModalOpen(true)}>Questions</DropdownMenuItem>
-        {row.original.status?.toLowerCase() !== 'success' && (
+        {!['success', 'completed'].includes(
+          row.original.status?.toLowerCase() || '',
+        ) && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -192,7 +207,7 @@ const BiddingTable = ({
   refreshKey?: number;
   retryDisabled?: boolean;
 }) => {
-  const { data, totalRecords, fetchBids, isLoading } = useBids();
+  const { data, totalRecords, fetchBids, updateBid, isLoading } = useBids();
   const navigate = useNavigate();
 
   const [pagination, setPagination] = useState<PaginationState>({
@@ -460,12 +475,13 @@ const BiddingTable = ({
           <ActionsCell
             row={row}
             retryDisabled={retryDisabled}
-            onRetry={() =>
-              fetchBids({
-                page: pagination.pageIndex + 1,
-                limit: pagination.pageSize,
-              })
-            }
+            onRetry={(result) => {
+              updateBid(row.original.id, {
+                ...result.bid,
+                status: result.status,
+                error: result.error,
+              });
+            }}
           />
         ),
         enableSorting: false,
@@ -475,7 +491,7 @@ const BiddingTable = ({
         },
       },
     ],
-    [navigate, retryDisabled],
+    [navigate, retryDisabled, updateBid],
   );
 
   const pageCount = pagination.pageSize > 0 && totalRecords > 0

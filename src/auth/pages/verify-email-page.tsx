@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context/auth-context';
-import { AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -37,11 +37,16 @@ export function VerifyEmailPage() {
   const { verifyEmail } = useAuth();
   const verifyEmailRef = useRef(verifyEmail);
   const activeTokenRef = useRef('');
-  const token = pathToken ? decodeToken(pathToken) : readRawTokenFromUrl(location.search, location.hash);
-  
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const token = pathToken
+    ? decodeToken(pathToken)
+    : readRawTokenFromUrl(location.search, location.hash);
+
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>(
+    'verifying',
+  );
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
 
   useEffect(() => {
     verifyEmailRef.current = verifyEmail;
@@ -67,11 +72,6 @@ export function VerifyEmailPage() {
         if (activeTokenRef.current !== verificationToken) return;
 
         setStatus('success');
-        setTimeout(() => {
-          if (activeTokenRef.current === verificationToken) {
-            navigate('/auth/checkout-review');
-          }
-        }, 1500);
       } catch (err) {
         if (activeTokenRef.current !== verificationToken) return;
 
@@ -79,13 +79,30 @@ export function VerifyEmailPage() {
         setError(
           err instanceof Error
             ? err.message
-            : 'Failed to verify email. The link may have expired or is invalid.'
+            : 'Failed to verify email. The link may have expired or is invalid.',
         );
       }
     }
 
     performVerification();
-  }, [token, navigate, retryKey]);
+  }, [token, retryKey]);
+
+  useEffect(() => {
+    if (status !== 'success') return;
+
+    setRedirectCountdown(5);
+    const countdownInterval = window.setInterval(() => {
+      setRedirectCountdown((current) => Math.max(0, current - 1));
+    }, 1000);
+    const redirectTimeout = window.setTimeout(() => {
+      navigate('/auth/checkout-review');
+    }, 5000);
+
+    return () => {
+      window.clearInterval(countdownInterval);
+      window.clearTimeout(redirectTimeout);
+    };
+  }, [navigate, status]);
 
   return (
     <div className="flex flex-col items-center justify-center text-center gap-6 py-4 w-full max-w-md mx-auto">
@@ -114,8 +131,10 @@ export function VerifyEmailPage() {
             <h1 className="text-2xl font-semibold tracking-tight">
               Email Verified
             </h1>
-            <p className="text-sm text-muted-foreground">
-              Your email has been successfully verified. Taking you to the review step...
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              Your email has been successfully verified. Redirecting you to the
+              payment plan in {redirectCountdown} second
+              {redirectCountdown === 1 ? '' : 's'}...
             </p>
           </div>
         </>
@@ -134,9 +153,13 @@ export function VerifyEmailPage() {
               We couldn't verify your email address.
             </p>
           </div>
-          
+
           {error && (
-            <Alert variant="destructive" appearance="light" className="w-full text-left mt-2">
+            <Alert
+              variant="destructive"
+              appearance="light"
+              className="w-full text-left mt-2"
+            >
               <AlertIcon>
                 <AlertCircle />
               </AlertIcon>

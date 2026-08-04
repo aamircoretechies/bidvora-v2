@@ -1,7 +1,14 @@
-import { Link, Outlet } from 'react-router-dom';
+import {
+  Activity,
+  CheckCircle2,
+  FileText,
+  Gavel,
+  ShieldCheck,
+} from 'lucide-react';
+import { Outlet } from 'react-router-dom';
+import { generalSettings } from '@/config/general.config';
 import { toAbsoluteUrl } from '@/lib/helpers';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShieldCheck, Activity, Gavel, FileText, CheckCircle2 } from 'lucide-react';
 
 export function BrandedLayout() {
   return (
@@ -32,13 +39,13 @@ export function BrandedLayout() {
 
         <div className="lg:rounded-xl lg:border lg:border-border lg:m-5 order-2 lg:order-1 bg-top xxl:bg-center xl:bg-cover bg-no-repeat branded-bg">
           <div className="flex flex-col p-8 lg:p-16 h-full min-h-[600px] relative">
-            <Link to="/">
+            <a href={generalSettings.website} aria-label="Visit Bidvora website">
               <img
                 src={toAbsoluteUrl('/media/app/mini-logo-circle.svg')}
                 className="h-[64px] max-w-none"
                 alt=""
               />
-            </Link>
+            </a>
 
             <div className="flex flex-col gap-6 mt-12">
               <h1 className="text-4xl lg:text-[3rem] leading-none font-bold text-white tracking-tight">

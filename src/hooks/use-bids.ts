@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { bidsService, IBid, GetBidsParams } from '@/services/bids.service';
+import { bidsService, GetBidsParams, IBid } from '@/services/bids.service';
 
 interface UseBidsState {
   data: IBid[];
@@ -7,6 +7,7 @@ interface UseBidsState {
   error: string | null;
   totalRecords: number;
   fetchBids: (params?: GetBidsParams) => Promise<void>;
+  updateBid: (id: number, changes: Partial<IBid>) => void;
 }
 
 export function useBids(): UseBidsState {
@@ -31,5 +32,11 @@ export function useBids(): UseBidsState {
     }
   }, []);
 
-  return { data, isLoading, error, totalRecords, fetchBids };
+  const updateBid = useCallback((id: number, changes: Partial<IBid>) => {
+    setData((current) =>
+      current.map((bid) => (bid.id === id ? { ...bid, ...changes } : bid)),
+    );
+  }, []);
+
+  return { data, isLoading, error, totalRecords, fetchBids, updateBid };
 }

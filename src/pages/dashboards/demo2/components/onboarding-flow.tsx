@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import { settingsService } from '@/services/settings.service';
+import {
+  settingsService,
+  type SecretsConfig,
+  type UpdateSettingsPayload,
+} from '@/services/settings.service';
 import { Integrations } from './integrations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +59,19 @@ const STEPS = [
     description: 'Save credentials safely',
   },
 ];
+
+const hasSavedAiKeyForModel = (
+  model: string,
+  secrets: Pick<
+    SecretsConfig,
+    'hasOpenaiApiKey' | 'hasGeminiApiKey' | 'hasNvidiaApiKey'
+  >,
+): boolean => {
+  if (model === 'gpt-5.5') return !!secrets.hasOpenaiApiKey;
+  if (model === 'gemini-pro') return !!secrets.hasGeminiApiKey;
+  if (model === 'nvidia-nemotron') return !!secrets.hasNvidiaApiKey;
+  return false;
+};
 
 /* ─── Left sidebar ───────────────────────────────────────────────────── */
 function OnboardingSidebar({ step }: { step: 1 | 2 | 3 }) {
@@ -198,6 +215,7 @@ function StepAISetup({
   setLlmModel,
   aiApiKey,
   setAiApiKey,
+  hasSavedAiApiKey,
   saving,
   onNext,
 }: {
@@ -205,8 +223,9 @@ function StepAISetup({
   setLlmModel: (v: string) => void;
   aiApiKey: string;
   setAiApiKey: (v: string) => void;
+  hasSavedAiApiKey: boolean;
   saving: boolean;
-  onNext: () => void;
+  onNext: () => Promise<void>;
 }) {
   const [error, setError] = useState('');
 
@@ -234,8 +253,8 @@ function StepAISetup({
     }
   }, [llmModel, aiApiKey]);
 
-  const handleNext = () => {
-    if (!aiApiKey) {
+  const handleNext = async () => {
+    if (!aiApiKey.trim() && !hasSavedAiApiKey) {
       toast.error('Please enter an API Key');
       return;
     }
@@ -243,7 +262,7 @@ function StepAISetup({
       toast.error('Invalid API Key for the selected model');
       return;
     }
-    onNext();
+    await onNext();
   };
 
   return (
@@ -281,12 +300,21 @@ function StepAISetup({
               type="password"
               value={aiApiKey}
               onChange={e => handleKeyChange(e.target.value)}
-              placeholder="Enter your AI API Key"
+              placeholder={
+                hasSavedAiApiKey
+                  ? 'Saved securely — enter a new key to replace it'
+                  : 'Enter your AI API Key'
+              }
               className="pl-9 font-mono text-sm"
               variant="lg"
             />
           </div>
           {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          {!error && hasSavedAiApiKey && !aiApiKey && (
+            <p className="text-xs text-emerald-600 mt-1">
+              API key saved securely
+            </p>
+          )}
           <p className="text-xs text-muted-foreground mt-1">
             {llmModel === 'gpt-5.5' && 'Expects a key starting with "sk-"'}
             {llmModel === 'gemini-pro' && 'Expects a key starting with "AQ." or "AIza"'}
@@ -486,9 +514,16 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
   const [llmModel, setLlmModel] = useState('gemini-pro');
   const [aiApiKey, setAiApiKey] = useState('');
+  const [savedAiKeys, setSavedAiKeys] = useState({
+    hasOpenaiApiKey: false,
+    hasGeminiApiKey: false,
+    hasNvidiaApiKey: false,
+  });
 
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
+
+  const hasSavedAiApiKey = hasSavedAiKeyForModel(llmModel, savedAiKeys);
 
   useEffect(() => {
     loadSettings();
@@ -537,12 +572,25 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
     try {
       const response = await settingsService.getSettings();
       if (response.success) {
-
         const authConfig = response.data.authConfig;
-        if (authConfig.llmModel) setLlmModel(authConfig.llmModel);
-        if (authConfig.llmModel === 'gpt-5.5' && authConfig.openaiApiKey) setAiApiKey(authConfig.openaiApiKey);
-        if (authConfig.llmModel === 'gemini-pro' && authConfig.geminiApiKey) setAiApiKey(authConfig.geminiApiKey);
-        if (authConfig.llmModel === 'nvidia-nemotron' && authConfig.nvidiaApiKey) setAiApiKey(authConfig.nvidiaApiKey);
+        const model =
+          response.data.botConfig.llmModel ||
+          authConfig.llmModel ||
+          'gemini-pro';
+        const persistedAiKeys = {
+          hasOpenaiApiKey:
+            !!response.data.secrets.hasOpenaiApiKey ||
+            !!authConfig.openaiApiKey,
+          hasGeminiApiKey:
+            !!response.data.secrets.hasGeminiApiKey ||
+            !!authConfig.geminiApiKey,
+          hasNvidiaApiKey:
+            !!response.data.secrets.hasNvidiaApiKey ||
+            !!authConfig.nvidiaApiKey,
+        };
+
+        setLlmModel(model);
+        setSavedAiKeys(persistedAiKeys);
 
         if (
           authConfig.clientId &&
@@ -550,12 +598,74 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         ) {
           setClientId(authConfig.clientId);
           setStep(3);
+        } else if (hasSavedAiKeyForModel(model, persistedAiKeys)) {
+          setStep(2);
         }
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveAiSetup = async () => {
+    const normalizedAiApiKey = aiApiKey.trim();
+
+    if (!normalizedAiApiKey && !hasSavedAiApiKey) {
+      toast.error('Please enter an API Key');
+      return;
+    }
+
+    const payload: UpdateSettingsPayload = { llmModel };
+    if (normalizedAiApiKey) {
+      if (llmModel === 'gpt-5.5') {
+        payload.openaiApiKey = normalizedAiApiKey;
+      }
+      if (llmModel === 'gemini-pro') {
+        payload.geminiApiKey = normalizedAiApiKey;
+      }
+      if (llmModel === 'nvidia-nemotron') {
+        payload.nvidiaApiKey = normalizedAiApiKey;
+      }
+      payload.embeddingApiKey = normalizedAiApiKey;
+    }
+
+    setSaving(true);
+    try {
+      const response = await settingsService.updateSettings(payload);
+      const nextSavedAiKeys = {
+        hasOpenaiApiKey:
+          !!response.data.secrets.hasOpenaiApiKey ||
+          savedAiKeys.hasOpenaiApiKey,
+        hasGeminiApiKey:
+          !!response.data.secrets.hasGeminiApiKey ||
+          savedAiKeys.hasGeminiApiKey,
+        hasNvidiaApiKey:
+          !!response.data.secrets.hasNvidiaApiKey ||
+          savedAiKeys.hasNvidiaApiKey,
+      };
+
+      if (normalizedAiApiKey) {
+        if (llmModel === 'gpt-5.5') {
+          nextSavedAiKeys.hasOpenaiApiKey = true;
+        }
+        if (llmModel === 'gemini-pro') {
+          nextSavedAiKeys.hasGeminiApiKey = true;
+        }
+        if (llmModel === 'nvidia-nemotron') {
+          nextSavedAiKeys.hasNvidiaApiKey = true;
+        }
+      }
+
+      setSavedAiKeys(nextSavedAiKeys);
+      setAiApiKey(normalizedAiApiKey);
+      setStep(2);
+      toast.success('AI provider saved securely');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to save AI provider');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -573,11 +683,17 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
     const normalizedAiApiKey = aiApiKey.trim();
     const normalizedClientId = clientId.trim();
+    if (!normalizedAiApiKey && !hasSavedAiApiKey) {
+      toast.error('Please save your AI API key in Step 1 first');
+      setStep(1);
+      return;
+    }
+
     setSaving(true);
     try {
       // The API validates all BotConfig fields on every PUT, so we must
       // include safe minimum values for fields not yet configured by the user.
-      const payload: any = {
+      const payload: UpdateSettingsPayload = {
         llmModel,
         clientId: normalizedClientId,
         clientSecret,
@@ -592,12 +708,14 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         maxExistingBids: 1,
       };
 
-      if (llmModel === 'gpt-5.5') payload.openaiApiKey = normalizedAiApiKey;
-      if (llmModel === 'gemini-pro') payload.geminiApiKey = normalizedAiApiKey;
-      if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = normalizedAiApiKey;
-
-      // The backend requires embeddingApiKey for bot operations
-      payload.embeddingApiKey = normalizedAiApiKey;
+      // Do not overwrite a securely persisted API key with an empty value
+      // after refresh or back/forward navigation.
+      if (normalizedAiApiKey) {
+        if (llmModel === 'gpt-5.5') payload.openaiApiKey = normalizedAiApiKey;
+        if (llmModel === 'gemini-pro') payload.geminiApiKey = normalizedAiApiKey;
+        if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = normalizedAiApiKey;
+        payload.embeddingApiKey = normalizedAiApiKey;
+      }
 
       await settingsService.updateSettings(payload);
       toast.success('Settings saved successfully');
@@ -632,8 +750,9 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
               setLlmModel={setLlmModel}
               aiApiKey={aiApiKey}
               setAiApiKey={setAiApiKey}
-              saving={false}
-              onNext={() => setStep(2)}
+              hasSavedAiApiKey={hasSavedAiApiKey}
+              saving={saving}
+              onNext={handleSaveAiSetup}
             />
           )}
           {step === 2 && (

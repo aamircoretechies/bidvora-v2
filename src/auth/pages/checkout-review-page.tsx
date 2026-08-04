@@ -5,6 +5,7 @@ import { usePlans } from '@/hooks/use-plans';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import { PaymentResultCard } from '@/auth/components/payment-result-card';
 
 const CHECKOUT_SUBSCRIPTION_KEY = 'register_checkout_subscription_id';
 const CHECKOUT_IDEMPOTENCY_KEY = 'register_checkout_idempotency_key';
@@ -17,7 +18,7 @@ interface RazorpayOptions {
   subscription_id: string;
   name: string;
   prefill?: { email: string; name: string };
-  handler: () => void | Promise<void>;
+  handler: (response: RazorpaySuccessResponse) => void | Promise<void>;
   modal: { ondismiss: () => void };
 }
 
@@ -27,6 +28,30 @@ interface RazorpayInstance {
 }
 
 type RazorpayConstructor = new (options: RazorpayOptions) => RazorpayInstance;
+
+interface RazorpaySuccessResponse {
+  razorpay_payment_id?: string;
+  razorpay_subscription_id?: string;
+}
+
+interface RazorpayFailureResponse {
+  error?: {
+    code?: string;
+    description?: string;
+    metadata?: {
+      payment_id?: string;
+      subscription_id?: string;
+    };
+  };
+}
+
+interface PaymentResult {
+  status: 'success' | 'failed';
+  transactionId: string;
+  subscriptionId: string;
+  message: string;
+  errorCode?: string;
+}
 
 let razorpayScriptPromise: Promise<void> | null = null;
 
@@ -137,6 +162,7 @@ export function CheckoutReviewPage() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<PaymentCurrency>('INR');
   const selectedBillingCountry = getCountryFromCurrency(selectedCurrency);
   const {
@@ -178,6 +204,7 @@ export function CheckoutReviewPage() {
     try {
       setIsProcessing(true);
       setError(null);
+      setPaymentResult(null);
 
       if (!auth?.access_token) {
         navigate('/auth/signin?next=/auth/checkout-review');
@@ -212,20 +239,35 @@ export function CheckoutReviewPage() {
           subscription_id: meta.subscriptionId,
           name: 'Bidvora',
           prefill: meta.prefill ?? undefined,
-          handler: async () => {
+          handler: async (response) => {
             paymentSubmitted = true;
             try {
               await confirmRazorpayBilling(meta.subscriptionId!);
               localStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
               sessionStorage.removeItem(CHECKOUT_SUBSCRIPTION_KEY);
               sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
-              navigate('/');
+              setPaymentResult({
+                status: 'success',
+                transactionId:
+                  response.razorpay_payment_id || meta.subscriptionId!,
+                subscriptionId:
+                  response.razorpay_subscription_id || meta.subscriptionId!,
+                message:
+                  'Your payment was confirmed successfully. You can now continue with account onboarding.',
+              });
+              setIsProcessing(false);
             } catch (confirmationError) {
-              setError(
-                confirmationError instanceof Error
-                  ? confirmationError.message
-                  : 'Billing confirmation failed.',
-              );
+              setPaymentResult({
+                status: 'failed',
+                transactionId:
+                  response.razorpay_payment_id || meta.subscriptionId!,
+                subscriptionId:
+                  response.razorpay_subscription_id || meta.subscriptionId!,
+                message:
+                  confirmationError instanceof Error
+                    ? confirmationError.message
+                    : 'We could not confirm the payment with the provider.',
+              });
               setIsProcessing(false);
             }
           },
@@ -236,8 +278,19 @@ export function CheckoutReviewPage() {
           },
         });
 
-        checkout.on('payment.failed', () => {
-          setError('Razorpay could not complete the payment. Please try again.');
+        checkout.on('payment.failed', (response) => {
+          const failure = response as RazorpayFailureResponse;
+          setPaymentResult({
+            status: 'failed',
+            transactionId:
+              failure.error?.metadata?.payment_id || meta.subscriptionId!,
+            subscriptionId:
+              failure.error?.metadata?.subscription_id || meta.subscriptionId!,
+            errorCode: failure.error?.code,
+            message:
+              failure.error?.description ||
+              'Razorpay could not complete the payment. No onboarding access has been granted.',
+          });
           setIsProcessing(false);
         });
         checkout.open();
@@ -271,7 +324,14 @@ export function CheckoutReviewPage() {
           localStorage.getItem(CHECKOUT_SUBSCRIPTION_KEY);
 
         if (currentUser && !currentUser.billingPending) {
-          navigate('/');
+          setPaymentResult({
+            status: 'success',
+            transactionId: storedSubscriptionId || 'Confirmed by provider',
+            subscriptionId: storedSubscriptionId || 'Not available',
+            message:
+              'Your payment was already confirmed. You can now continue with account onboarding.',
+          });
+          setIsProcessing(false);
           return;
         }
 
@@ -333,6 +393,59 @@ export function CheckoutReviewPage() {
       console.warn('Failed to update checkout preferences', preferencesError);
     });
   };
+
+  if (paymentResult) {
+    const resultDetails = [
+      {
+        label: 'Status',
+        value: paymentResult.status === 'success' ? 'Successful' : 'Failed',
+      },
+      { label: 'Provider', value: selectedPayment.provider },
+      { label: 'Plan', value: selectedPlan },
+      {
+        label: 'Amount',
+        value: pricingDisplay ?? formatZeroPrice(selectedCurrency),
+      },
+      { label: 'Transaction ID', value: paymentResult.transactionId },
+      { label: 'Subscription ID', value: paymentResult.subscriptionId },
+      ...(paymentResult.errorCode
+        ? [{ label: 'Error code', value: paymentResult.errorCode }]
+        : []),
+    ];
+
+    return (
+      <PaymentResultCard
+        status={paymentResult.status}
+        title={
+          paymentResult.status === 'success'
+            ? 'Your payment is complete'
+            : 'Your payment was not completed'
+        }
+        message={paymentResult.message}
+        details={resultDetails}
+        primaryLabel={
+          paymentResult.status === 'success' ? 'Onboard Now' : 'Retry Payment'
+        }
+        onPrimary={() => {
+          if (paymentResult.status === 'success') {
+            navigate('/');
+            return;
+          }
+
+          void handleStartCheckout();
+        }}
+        primaryLoading={isProcessing}
+        secondaryLabel={
+          paymentResult.status === 'failed' ? 'Review Payment Details' : undefined
+        }
+        onSecondary={
+          paymentResult.status === 'failed'
+            ? () => setPaymentResult(null)
+            : undefined
+        }
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col items-center text-center gap-6 py-4 w-full max-w-md mx-auto">

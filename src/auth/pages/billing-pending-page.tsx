@@ -1,16 +1,27 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context/auth-context';
 import { useConfirmCheckout } from '@/hooks/use-confirm-checkout';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CreditCard, Loader2 } from 'lucide-react';
-import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import { CreditCard, Loader2 } from 'lucide-react';
+import { PaymentResultCard } from '@/auth/components/payment-result-card';
 
 const CHECKOUT_SUBSCRIPTION_KEY = 'register_checkout_subscription_id';
 const CHECKOUT_SESSION_KEY = 'billing_checkout_session_id';
 const CONFIRM_BILLING_IDEMPOTENCY_KEY = 'confirm_billing_idempotency_key';
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 60000;
+
+interface PaymentResult {
+  status: 'success' | 'failed';
+  message: string;
+  transactionId: string;
+  subscriptionId: string;
+  provider: string;
+  plan: string;
+  currency: string;
+  subscriptionState: string;
+}
 
 function createIdempotencyKey() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -57,15 +68,45 @@ function clearCheckoutStorage() {
 }
 
 export function BillingPendingPage() {
-  const { confirmBilling } = useAuth();
+  const { confirmBilling, user, verify } = useAuth();
   const { mutateAsync: confirmCheckoutSession } = useConfirmCheckout();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const initialUserRef = useRef(user);
+  const confirmBillingRef = useRef(confirmBilling);
+  const confirmCheckoutSessionRef = useRef(confirmCheckoutSession);
+  const verifyRef = useRef(verify);
 
   const [confirming, setConfirming] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const [subscriptionId] = useState(() => readSubscriptionId(searchParams));
   const [sessionId] = useState(() => readSessionId(searchParams));
+  const [callbackFailed] = useState(() => {
+    const callbackStatus = (
+      searchParams.get('payment_status') ||
+      searchParams.get('status') ||
+      searchParams.get('result') ||
+      ''
+    ).toLowerCase();
+    const cancelled = (
+      searchParams.get('cancelled') ||
+      searchParams.get('canceled') ||
+      searchParams.get('cancel') ||
+      ''
+    ).toLowerCase();
+
+    return (
+      ['failed', 'failure', 'cancelled', 'canceled', 'denied'].includes(
+        callbackStatus,
+      ) || ['1', 'true', 'yes'].includes(cancelled)
+    );
+  });
+
+  useEffect(() => {
+    confirmBillingRef.current = confirmBilling;
+    confirmCheckoutSessionRef.current = confirmCheckoutSession;
+    verifyRef.current = verify;
+  }, [confirmBilling, confirmCheckoutSession, verify]);
 
   useEffect(() => {
     if (subscriptionId) {
@@ -86,28 +127,90 @@ export function BillingPendingPage() {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const startedAt = Date.now();
 
+    if (callbackFailed) {
+      setConfirming(false);
+      setPaymentResult({
+        status: 'failed',
+        message:
+          'The payment provider reported that this transaction was not completed. Your account has not been opened for onboarding.',
+        transactionId: sessionId || subscriptionId || 'Not available',
+        subscriptionId: subscriptionId || 'Not available',
+        provider: initialUserRef.current?.billingProvider || 'Payment provider',
+        plan:
+          initialUserRef.current?.selectedPlan ||
+          initialUserRef.current?.plan ||
+          'Not available',
+        currency:
+          initialUserRef.current?.billingCurrency?.toUpperCase() ||
+          'Not available',
+        subscriptionState:
+          initialUserRef.current?.subscriptionState || 'FAILED',
+      });
+      return;
+    }
+
     if (sessionId) {
       const confirmPaidSession = async () => {
         try {
-          const result = await confirmCheckoutSession(sessionId);
+          const result = await confirmCheckoutSessionRef.current(sessionId);
           if (!isMounted) return;
 
           if (!result.subscription.checkoutPendingAt) {
-            clearCheckoutStorage();
-            navigate('/settings/subscription', { replace: true });
+            setConfirming(false);
+            setPaymentResult({
+              status: 'success',
+              message:
+                'Your payment was confirmed successfully. You can now continue with account onboarding.',
+              transactionId: sessionId,
+              subscriptionId: subscriptionId || sessionId,
+              provider:
+                result.subscription.billingProvider || 'Payment provider',
+              plan: result.subscription.plan,
+              currency:
+                result.subscription.billingCurrency?.toUpperCase() ||
+                'Not available',
+              subscriptionState: result.subscription.subscriptionState,
+            });
             return;
           }
 
           setConfirming(false);
-          setError('Checkout is still pending confirmation. Please try again shortly.');
+          setPaymentResult({
+            status: 'failed',
+            message:
+              'The checkout returned successfully, but the provider has not confirmed the payment yet. Check the status again before retrying payment.',
+            transactionId: sessionId,
+            subscriptionId: subscriptionId || sessionId,
+            provider: result.subscription.billingProvider || 'Payment provider',
+            plan: result.subscription.plan,
+            currency:
+              result.subscription.billingCurrency?.toUpperCase() ||
+              'Not available',
+            subscriptionState: result.subscription.subscriptionState,
+          });
         } catch (sessionError) {
           if (!isMounted) return;
           setConfirming(false);
-          setError(
-            sessionError instanceof Error
-              ? sessionError.message
-              : 'Failed to confirm the paid checkout session.',
-          );
+          setPaymentResult({
+            status: 'failed',
+            message:
+              sessionError instanceof Error
+                ? sessionError.message
+                : 'Failed to confirm the paid checkout session.',
+            transactionId: sessionId,
+            subscriptionId: subscriptionId || 'Not available',
+            provider:
+              initialUserRef.current?.billingProvider || 'Payment provider',
+            plan:
+              initialUserRef.current?.selectedPlan ||
+              initialUserRef.current?.plan ||
+              'Not available',
+            currency:
+              initialUserRef.current?.billingCurrency?.toUpperCase() ||
+              'Not available',
+            subscriptionState:
+              initialUserRef.current?.subscriptionState || 'UNCONFIRMED',
+          });
         }
       };
 
@@ -120,22 +223,66 @@ export function BillingPendingPage() {
     const pollBilling = async () => {
       if (!subscriptionId) {
         setConfirming(false);
-        setError(
-          'We could not find the subscription from checkout. Please return to the review step and try again.',
-        );
+        setPaymentResult({
+          status: 'failed',
+          message:
+            'We could not find the transaction reference from checkout. Return to the payment review and try again.',
+          transactionId: 'Not available',
+          subscriptionId: 'Not available',
+          provider:
+            initialUserRef.current?.billingProvider || 'Payment provider',
+          plan:
+            initialUserRef.current?.selectedPlan ||
+            initialUserRef.current?.plan ||
+            'Not available',
+          currency:
+            initialUserRef.current?.billingCurrency?.toUpperCase() ||
+            'Not available',
+          subscriptionState: 'UNCONFIRMED',
+        });
         return;
       }
 
       try {
-        const currentUser = await confirmBilling(
+        const currentUser = await confirmBillingRef.current(
           subscriptionId,
           getConfirmBillingIdempotencyKey(),
         );
         if (!isMounted) return;
 
         if (!currentUser.billingPending) {
-          clearCheckoutStorage();
-          navigate('/');
+          setConfirming(false);
+          setPaymentResult({
+            status: 'success',
+            message:
+              'Your payment was confirmed successfully. You can now continue with account onboarding.',
+            transactionId: subscriptionId,
+            subscriptionId,
+            provider: currentUser.billingProvider || 'Payment provider',
+            plan:
+              currentUser.selectedPlan || currentUser.plan || 'Not available',
+            currency:
+              currentUser.billingCurrency?.toUpperCase() || 'Not available',
+            subscriptionState: currentUser.subscriptionState || 'ACTIVE',
+          });
+          return;
+        }
+
+        if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
+          setConfirming(false);
+          setPaymentResult({
+            status: 'failed',
+            message:
+              'The payment is still not confirmed. Check the status again before starting a new payment.',
+            transactionId: subscriptionId,
+            subscriptionId,
+            provider: currentUser.billingProvider || 'Payment provider',
+            plan:
+              currentUser.selectedPlan || currentUser.plan || 'Not available',
+            currency:
+              currentUser.billingCurrency?.toUpperCase() || 'Not available',
+            subscriptionState: currentUser.subscriptionState || 'PENDING',
+          });
           return;
         }
       } catch (err) {
@@ -143,11 +290,26 @@ export function BillingPendingPage() {
 
         if (Date.now() - startedAt >= POLL_TIMEOUT_MS) {
           setConfirming(false);
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'Billing is still pending. Please try again in a moment.',
-          );
+          setPaymentResult({
+            status: 'failed',
+            message:
+              err instanceof Error
+                ? err.message
+                : 'Billing is still pending. Please try again in a moment.',
+            transactionId: subscriptionId,
+            subscriptionId,
+            provider:
+              initialUserRef.current?.billingProvider || 'Payment provider',
+            plan:
+              initialUserRef.current?.selectedPlan ||
+              initialUserRef.current?.plan ||
+              'Not available',
+            currency:
+              initialUserRef.current?.billingCurrency?.toUpperCase() ||
+              'Not available',
+            subscriptionState:
+              initialUserRef.current?.subscriptionState || 'UNCONFIRMED',
+          });
           return;
         }
       }
@@ -161,20 +323,49 @@ export function BillingPendingPage() {
       isMounted = false;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [confirmBilling, confirmCheckoutSession, navigate, sessionId, subscriptionId]);
+  }, [
+    callbackFailed,
+    sessionId,
+    subscriptionId,
+  ]);
 
   const handleConfirm = async () => {
     try {
       setConfirming(true);
-      setError(null);
+      setPaymentResult(null);
 
       if (sessionId) {
         const result = await confirmCheckoutSession(sessionId);
         if (!result.subscription.checkoutPendingAt) {
-          clearCheckoutStorage();
-          navigate('/settings/subscription', { replace: true });
+          setPaymentResult({
+            status: 'success',
+            message:
+              'Your payment was confirmed successfully. You can now continue with account onboarding.',
+            transactionId: sessionId,
+            subscriptionId: subscriptionId || sessionId,
+            provider:
+              result.subscription.billingProvider || 'Payment provider',
+            plan: result.subscription.plan,
+            currency:
+              result.subscription.billingCurrency?.toUpperCase() ||
+              'Not available',
+            subscriptionState: result.subscription.subscriptionState,
+          });
         } else {
-          setError('Checkout is still pending confirmation. Please try again shortly.');
+          setPaymentResult({
+            status: 'failed',
+            message:
+              'Payment has not been confirmed yet. Check again before starting a new transaction.',
+            transactionId: sessionId,
+            subscriptionId: subscriptionId || sessionId,
+            provider:
+              result.subscription.billingProvider || 'Payment provider',
+            plan: result.subscription.plan,
+            currency:
+              result.subscription.billingCurrency?.toUpperCase() ||
+              'Not available',
+            subscriptionState: result.subscription.subscriptionState,
+          });
         }
         return;
       }
@@ -188,21 +379,121 @@ export function BillingPendingPage() {
         getConfirmBillingIdempotencyKey(),
       );
       if (!currentUser.billingPending) {
-        clearCheckoutStorage();
-        navigate('/');
+        setPaymentResult({
+          status: 'success',
+          message:
+            'Your payment was confirmed successfully. You can now continue with account onboarding.',
+          transactionId: subscriptionId,
+          subscriptionId,
+          provider: currentUser.billingProvider || 'Payment provider',
+          plan: currentUser.selectedPlan || currentUser.plan || 'Not available',
+          currency:
+            currentUser.billingCurrency?.toUpperCase() || 'Not available',
+          subscriptionState: currentUser.subscriptionState || 'ACTIVE',
+        });
       } else {
-        setError('Payment has not been confirmed yet. Please wait a moment or try again.');
+        setPaymentResult({
+          status: 'failed',
+          message:
+            'Payment has not been confirmed yet. Check again before starting a new transaction.',
+          transactionId: subscriptionId,
+          subscriptionId,
+          provider: currentUser.billingProvider || 'Payment provider',
+          plan: currentUser.selectedPlan || currentUser.plan || 'Not available',
+          currency:
+            currentUser.billingCurrency?.toUpperCase() || 'Not available',
+          subscriptionState: currentUser.subscriptionState || 'PENDING',
+        });
       }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Confirmation failed. Please verify payment is complete.',
-      );
+      setPaymentResult({
+        status: 'failed',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'Confirmation failed. Please verify payment is complete.',
+        transactionId: sessionId || subscriptionId || 'Not available',
+        subscriptionId: subscriptionId || 'Not available',
+        provider: initialUserRef.current?.billingProvider || 'Payment provider',
+        plan:
+          initialUserRef.current?.selectedPlan ||
+          initialUserRef.current?.plan ||
+          'Not available',
+        currency:
+          initialUserRef.current?.billingCurrency?.toUpperCase() ||
+          'Not available',
+        subscriptionState:
+          initialUserRef.current?.subscriptionState || 'UNCONFIRMED',
+      });
     } finally {
       setConfirming(false);
     }
   };
+
+  if (paymentResult) {
+    return (
+      <PaymentResultCard
+        status={paymentResult.status}
+        title={
+          paymentResult.status === 'success'
+            ? 'Payment confirmed'
+            : 'Payment could not be confirmed'
+        }
+        message={paymentResult.message}
+        details={[
+          {
+            label: 'Status',
+            value: paymentResult.status === 'success' ? 'Successful' : 'Failed',
+          },
+          { label: 'Provider', value: paymentResult.provider },
+          { label: 'Plan', value: paymentResult.plan },
+          { label: 'Currency', value: paymentResult.currency },
+          { label: 'Transaction ID', value: paymentResult.transactionId },
+          { label: 'Subscription ID', value: paymentResult.subscriptionId },
+          { label: 'Provider state', value: paymentResult.subscriptionState },
+        ]}
+        primaryLabel={
+          paymentResult.status === 'success'
+            ? 'Onboard Now'
+            : 'Check Payment Again'
+        }
+        onPrimary={() => {
+          if (paymentResult.status === 'success') {
+            setConfirming(true);
+            void verify()
+              .then(() => {
+                clearCheckoutStorage();
+                navigate('/');
+              })
+              .catch(() => {
+                setConfirming(false);
+                setPaymentResult((current) =>
+                  current
+                    ? {
+                        ...current,
+                        message:
+                          'Your payment is confirmed, but we could not refresh your account access. Please click Onboard Now again.',
+                      }
+                    : current,
+                );
+              });
+            return;
+          }
+
+          void handleConfirm();
+        }}
+        primaryLoading={confirming}
+        secondaryLabel={
+          paymentResult.status === 'failed' ? 'Retry Payment' : undefined
+        }
+        onSecondary={
+          paymentResult.status === 'failed'
+            ? () => navigate('/auth/checkout-review')
+            : undefined
+        }
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col items-center text-center gap-6 py-10 w-full max-w-md mx-auto">
@@ -219,15 +510,6 @@ export function BillingPendingPage() {
           This usually takes a few seconds after checkout redirects you back.
         </p>
       </div>
-
-      {error && (
-        <Alert variant="destructive" appearance="light" className="text-left w-full">
-          <AlertIcon>
-            <AlertCircle />
-          </AlertIcon>
-          <AlertTitle>{error}</AlertTitle>
-        </Alert>
-      )}
 
       <div className="w-full space-y-3 mt-4">
         <Button
@@ -246,8 +528,13 @@ export function BillingPendingPage() {
           )}
         </Button>
 
-        <Button asChild size="lg" variant="outline" className="w-full">
-          <Link to="/auth/checkout-review">Go Back to Review</Link>
+        <Button
+          size="lg"
+          variant="outline"
+          className="w-full"
+          onClick={() => navigate('/auth/checkout-review')}
+        >
+          Go Back to Review
         </Button>
       </div>
     </div>
