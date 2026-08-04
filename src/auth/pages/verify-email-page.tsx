@@ -46,7 +46,7 @@ export function VerifyEmailPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-  const [redirectCountdown, setRedirectCountdown] = useState(5);
+  const [verificationCountdown, setVerificationCountdown] = useState(8);
 
   useEffect(() => {
     verifyEmailRef.current = verifyEmail;
@@ -90,19 +90,20 @@ export function VerifyEmailPage() {
   useEffect(() => {
     if (status !== 'success') return;
 
-    setRedirectCountdown(5);
+    setVerificationCountdown(8);
     const countdownInterval = window.setInterval(() => {
-      setRedirectCountdown((current) => Math.max(0, current - 1));
-    }, 1000);
-    const redirectTimeout = window.setTimeout(() => {
-      navigate('/auth/checkout-review');
-    }, 5000);
+      setVerificationCountdown((current) => {
+        if (current <= 1) {
+          window.clearInterval(countdownInterval);
+          return 0;
+        }
 
-    return () => {
-      window.clearInterval(countdownInterval);
-      window.clearTimeout(redirectTimeout);
-    };
-  }, [navigate, status]);
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(countdownInterval);
+  }, [status]);
 
   return (
     <div className="flex flex-col items-center justify-center text-center gap-6 py-4 w-full max-w-md mx-auto">
@@ -132,9 +133,9 @@ export function VerifyEmailPage() {
               Email Verified
             </h1>
             <p className="text-sm text-muted-foreground" aria-live="polite">
-              Your email has been successfully verified. Redirecting you to the
-              payment plan in {redirectCountdown} second
-              {redirectCountdown === 1 ? '' : 's'}...
+              Your email has been successfully verified. This status will remain
+              on this page. Countdown: {verificationCountdown} second
+              {verificationCountdown === 1 ? '' : 's'}.
             </p>
           </div>
         </>
