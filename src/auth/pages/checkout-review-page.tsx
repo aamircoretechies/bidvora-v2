@@ -164,12 +164,48 @@ export function CheckoutReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<PaymentCurrency>('INR');
+  const [confirmedCurrency, setConfirmedCurrency] =
+    useState<PaymentCurrency | null>(null);
+  const [readyCurrency, setReadyCurrency] =
+    useState<PaymentCurrency | null>(null);
+  const [isCurrencyUpdating, setIsCurrencyUpdating] = useState(false);
   const selectedBillingCountry = getCountryFromCurrency(selectedCurrency);
   const {
     plans,
     loading: plansLoading,
+    fetching: plansFetching,
     error: plansError,
-  } = usePlans(selectedBillingCountry);
+  } = usePlans(selectedBillingCountry, { requireFresh: true });
+  const selectedPlan = user?.selectedPlan || user?.plan || 'STARTER';
+  const selectedPayment =
+    paymentOptions.find((option) => option.currency === selectedCurrency) ??
+    paymentOptions[0];
+  const selectedPlanPrice = plans?.plans.find(
+    (plan) => plan.plan === selectedPlan,
+  );
+  const isTrial =
+    user?.status === 'TRIAL' || user?.status === 'PENDING_VERIFICATION';
+  const pricingDisplay = isTrial
+    ? formatZeroPrice(selectedCurrency)
+    : selectedPlanPrice?.displayAmount;
+  const expectedBillingProvider =
+    selectedCurrency === 'INR' ? 'RAZORPAY' : 'PAYPAL';
+  const plansMatchSelection = Boolean(
+    plans &&
+      plans.country === selectedBillingCountry &&
+      plans.currency.toUpperCase() === selectedCurrency &&
+      plans.billingProvider === expectedBillingProvider &&
+      selectedPlanPrice,
+  );
+  const isCheckoutReady = Boolean(
+    confirmedCurrency === selectedCurrency &&
+      readyCurrency === selectedCurrency &&
+      !isCurrencyUpdating &&
+      !plansLoading &&
+      !plansFetching &&
+      !plansError &&
+      plansMatchSelection,
+  );
 
   const confirmRazorpayBilling = async (subscriptionId: string) => {
     const deadline = Date.now() + CONFIRM_POLL_TIMEOUT_MS;
@@ -197,14 +233,59 @@ export function CheckoutReviewPage() {
   };
 
   useEffect(() => {
-    setSelectedCurrency(getCurrencyFromCountry(user?.billingCountry));
+    const currency = getCurrencyFromCountry(user?.billingCountry);
+    setSelectedCurrency(currency);
+    setConfirmedCurrency(currency);
   }, [user?.billingCountry]);
+
+  useEffect(() => {
+    setReadyCurrency(null);
+
+    if (
+      confirmedCurrency !== selectedCurrency ||
+      isCurrencyUpdating ||
+      plansLoading ||
+      plansFetching ||
+      plansError ||
+      !plansMatchSelection
+    ) {
+      return;
+    }
+
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        setReadyCurrency(selectedCurrency);
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [
+    confirmedCurrency,
+    isCurrencyUpdating,
+    plansError,
+    plansFetching,
+    plansLoading,
+    plansMatchSelection,
+    selectedCurrency,
+  ]);
 
   const handleStartCheckout = async () => {
     try {
-      setIsProcessing(true);
       setError(null);
       setPaymentResult(null);
+
+      if (!isCheckoutReady) {
+        setError(
+          'Payment options are still syncing. Please wait for the selected currency and provider to finish loading.',
+        );
+        return;
+      }
+
+      setIsProcessing(true);
 
       if (!auth?.access_token) {
         navigate('/auth/signin?next=/auth/checkout-review');
@@ -221,6 +302,17 @@ export function CheckoutReviewPage() {
       if (meta.subscriptionId) {
         localStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, meta.subscriptionId);
         sessionStorage.setItem(CHECKOUT_SUBSCRIPTION_KEY, meta.subscriptionId);
+      }
+
+      const expectedCheckoutMode =
+        selectedCurrency === 'INR' ? 'razorpay_modal' : 'redirect';
+      if (meta.checkoutMode !== expectedCheckoutMode) {
+        sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
+        throw new Error(
+          selectedCurrency === 'INR'
+            ? 'Payment gateway mismatch: INR checkout must use Razorpay. Please try again.'
+            : 'Payment gateway mismatch: USD checkout must use PayPal. Please try again.',
+        );
       }
 
       if (meta.checkoutMode === 'razorpay_modal') {
@@ -372,26 +464,46 @@ export function CheckoutReviewPage() {
     );
   }
 
-  const selectedPlan = user.selectedPlan || user.plan || 'STARTER';
-  const selectedPayment = paymentOptions.find(
-    (option) => option.currency === selectedCurrency,
-  ) ?? paymentOptions[0];
-  const selectedPlanPrice = plans?.plans.find((plan) => plan.plan === selectedPlan);
-  const isTrial =
-    user.status === 'TRIAL' || user.status === 'PENDING_VERIFICATION';
-  const pricingDisplay = isTrial
-    ? formatZeroPrice(selectedCurrency)
-    : selectedPlanPrice?.displayAmount;
-  const handlePaymentCurrencyChange = (currency: PaymentCurrency) => {
-    if (currency === selectedCurrency) return;
+  const handlePaymentCurrencyChange = async (currency: PaymentCurrency) => {
+    if (
+      currency === selectedCurrency ||
+      isCurrencyUpdating ||
+      isProcessing
+    ) {
+      return;
+    }
 
+    const previousCurrency = confirmedCurrency ?? selectedCurrency;
+    setError(null);
+    setReadyCurrency(null);
     setSelectedCurrency(currency);
-    updateRegisterPreferences({
-      country: getCountryFromCurrency(currency),
-      plan: selectedPlan as 'STARTER' | 'PRO',
-    }).catch((preferencesError) => {
+    setIsCurrencyUpdating(true);
+
+    try {
+      const updatedUser = await updateRegisterPreferences({
+        country: getCountryFromCurrency(currency),
+        plan: selectedPlan as 'STARTER' | 'PRO',
+      });
+      const savedCurrency = getCurrencyFromCountry(updatedUser.billingCountry);
+
+      if (savedCurrency !== currency) {
+        throw new Error('The selected payment currency was not saved correctly.');
+      }
+
+      sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY);
+      setConfirmedCurrency(currency);
+    } catch (preferencesError) {
       console.warn('Failed to update checkout preferences', preferencesError);
-    });
+      setSelectedCurrency(previousCurrency);
+      setConfirmedCurrency(previousCurrency);
+      setError(
+        preferencesError instanceof Error
+          ? preferencesError.message
+          : 'Failed to update the payment currency. Please try again.',
+      );
+    } finally {
+      setIsCurrencyUpdating(false);
+    }
   };
 
   if (paymentResult) {
@@ -484,7 +596,7 @@ export function CheckoutReviewPage() {
 
           <div className="text-muted-foreground">Pricing</div>
           <div className="col-span-2">
-            {plansLoading ? (
+            {plansLoading || plansFetching ? (
               <span className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
                 Loading pricing
@@ -512,6 +624,9 @@ export function CheckoutReviewPage() {
                   key={option.currency}
                   className={[
                     'relative flex cursor-pointer items-center justify-between rounded-md border px-4 py-3 text-sm font-semibold transition-colors',
+                    isCurrencyUpdating || isProcessing
+                      ? 'cursor-not-allowed opacity-60'
+                      : '',
                     isSelected
                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
                       : 'border-input bg-background text-foreground hover:border-primary/60 hover:bg-primary/5',
@@ -522,7 +637,10 @@ export function CheckoutReviewPage() {
                     name="paymentCurrency"
                     value={option.currency}
                     checked={isSelected}
-                    onChange={() => handlePaymentCurrencyChange(option.currency)}
+                    onChange={() => {
+                      void handlePaymentCurrencyChange(option.currency);
+                    }}
+                    disabled={isCurrencyUpdating || isProcessing}
                     className="sr-only"
                   />
                   <span>{option.currency}</span>
@@ -543,6 +661,12 @@ export function CheckoutReviewPage() {
               );
             })}
           </div>
+          {!isCheckoutReady && !plansError && (
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
+              Syncing {selectedCurrency} with {selectedPayment.provider}...
+            </p>
+          )}
         </div>
       </div>
 
@@ -550,12 +674,17 @@ export function CheckoutReviewPage() {
         size="lg"
         className="w-full mt-4"
         onClick={handleStartCheckout}
-        disabled={isProcessing}
+        disabled={isProcessing || !isCheckoutReady}
       >
         {isProcessing ? (
           <span className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             Preparing checkout…
+          </span>
+        ) : !isCheckoutReady ? (
+          <span className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Syncing payment options...
           </span>
         ) : (
           'Continue to payment'
