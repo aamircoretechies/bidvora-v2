@@ -16,6 +16,7 @@ const isEmailVerificationRoute = (path: string): boolean =>
   path.startsWith('/verify-email');
 
 const isBillingFlowRoute = (path: string): boolean =>
+  isEmailVerificationRoute(path) ||
   path === '/auth/signin' ||
   path === '/auth/signup' ||
   path === '/auth/classic/signin' ||
