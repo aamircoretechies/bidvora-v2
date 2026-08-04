@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   settingsService,
+  type SettingsApiResponse,
   type SecretsConfig,
   type UpdateSettingsPayload,
 } from '@/services/settings.service';
@@ -72,6 +73,62 @@ const hasSavedAiKeyForModel = (
   if (model === 'nvidia-nemotron') return !!secrets.hasNvidiaApiKey;
   return false;
 };
+
+const ONBOARDING_CLIENT_ID_PLACEHOLDER = 'my-client-id';
+const ONBOARDING_CLIENT_SECRET_PLACEHOLDER = 'my-client-secret';
+
+function positiveSetting(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : 1;
+}
+
+function buildOnboardingSettingsPayload({
+  llmModel,
+  currentSettings,
+  changes,
+}: {
+  llmModel: string;
+  currentSettings: SettingsApiResponse['data'] | null;
+  changes: UpdateSettingsPayload;
+}): UpdateSettingsPayload {
+  const authConfig = currentSettings?.authConfig;
+  const botConfig = currentSettings?.botConfig;
+  const existingClientId = authConfig?.clientId?.trim();
+  const hasRealFreelancerCredentials = Boolean(
+    existingClientId && existingClientId !== ONBOARDING_CLIENT_ID_PLACEHOLDER,
+  );
+  const minBudget = positiveSetting(botConfig?.minBudget);
+  const minHourlyRate = positiveSetting(botConfig?.minHourlyRate);
+
+  const payload: UpdateSettingsPayload = {
+    llmModel,
+    clientId: hasRealFreelancerCredentials
+      ? existingClientId
+      : ONBOARDING_CLIENT_ID_PLACEHOLDER,
+    minBudget,
+    maxBudget: Math.max(minBudget, positiveSetting(botConfig?.maxBudget)),
+    minHourlyRate,
+    maxHourlyRate: Math.max(
+      minHourlyRate,
+      positiveSetting(botConfig?.maxHourlyRate),
+    ),
+    bidFactorPercent: positiveSetting(botConfig?.bidFactorPercent),
+    hourlyPrice: positiveSetting(botConfig?.hourlyPrice),
+    dailyBidLimit: positiveSetting(botConfig?.dailyBidLimit),
+    maxBidsPerCycle: positiveSetting(botConfig?.maxBidsPerCycle),
+    maxExistingBids: positiveSetting(botConfig?.maxExistingBids),
+  };
+
+  // The combined PUT endpoint validates Freelancer credentials even while
+  // Step 1 is being saved. Only seed a temporary secret for a brand-new setup;
+  // never send a masked existing secret back to the API.
+  if (!hasRealFreelancerCredentials) {
+    payload.clientSecret = ONBOARDING_CLIENT_SECRET_PLACEHOLDER;
+  }
+
+  return { ...payload, ...changes };
+}
 
 /* ─── Left sidebar ───────────────────────────────────────────────────── */
 function OnboardingSidebar({ step }: { step: 1 | 2 | 3 }) {
@@ -511,6 +568,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const settingsSnapshotRef = useRef<SettingsApiResponse['data'] | null>(null);
 
   const [llmModel, setLlmModel] = useState('gemini-pro');
   const [aiApiKey, setAiApiKey] = useState('');
@@ -572,6 +630,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
     try {
       const response = await settingsService.getSettings();
       if (response.success) {
+        settingsSnapshotRef.current = response.data;
         const authConfig = response.data.authConfig;
         const model =
           response.data.botConfig.llmModel ||
@@ -617,23 +676,30 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       return;
     }
 
-    const payload: UpdateSettingsPayload = { llmModel };
+    const changes: UpdateSettingsPayload = { llmModel };
     if (normalizedAiApiKey) {
       if (llmModel === 'gpt-5.5') {
-        payload.openaiApiKey = normalizedAiApiKey;
+        changes.openaiApiKey = normalizedAiApiKey;
       }
       if (llmModel === 'gemini-pro') {
-        payload.geminiApiKey = normalizedAiApiKey;
+        changes.geminiApiKey = normalizedAiApiKey;
       }
       if (llmModel === 'nvidia-nemotron') {
-        payload.nvidiaApiKey = normalizedAiApiKey;
+        changes.nvidiaApiKey = normalizedAiApiKey;
       }
-      payload.embeddingApiKey = normalizedAiApiKey;
+      changes.embeddingApiKey = normalizedAiApiKey;
     }
+
+    const payload = buildOnboardingSettingsPayload({
+      llmModel,
+      currentSettings: settingsSnapshotRef.current,
+      changes,
+    });
 
     setSaving(true);
     try {
       const response = await settingsService.updateSettings(payload);
+      settingsSnapshotRef.current = response.data;
       const nextSavedAiKeys = {
         hasOpenaiApiKey:
           !!response.data.secrets.hasOpenaiApiKey ||
@@ -691,33 +757,30 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
 
     setSaving(true);
     try {
-      // The API validates all BotConfig fields on every PUT, so we must
-      // include safe minimum values for fields not yet configured by the user.
-      const payload: UpdateSettingsPayload = {
+      const changes: UpdateSettingsPayload = {
         llmModel,
         clientId: normalizedClientId,
         clientSecret,
-        minBudget: 1,
-        maxBudget: 1,
-        minHourlyRate: 1,
-        maxHourlyRate: 1,
-        bidFactorPercent: 1,
-        hourlyPrice: 1,
-        dailyBidLimit: 1,
-        maxBidsPerCycle: 1,
-        maxExistingBids: 1,
       };
 
       // Do not overwrite a securely persisted API key with an empty value
       // after refresh or back/forward navigation.
       if (normalizedAiApiKey) {
-        if (llmModel === 'gpt-5.5') payload.openaiApiKey = normalizedAiApiKey;
-        if (llmModel === 'gemini-pro') payload.geminiApiKey = normalizedAiApiKey;
-        if (llmModel === 'nvidia-nemotron') payload.nvidiaApiKey = normalizedAiApiKey;
-        payload.embeddingApiKey = normalizedAiApiKey;
+        if (llmModel === 'gpt-5.5') changes.openaiApiKey = normalizedAiApiKey;
+        if (llmModel === 'gemini-pro') changes.geminiApiKey = normalizedAiApiKey;
+        if (llmModel === 'nvidia-nemotron') {
+          changes.nvidiaApiKey = normalizedAiApiKey;
+        }
+        changes.embeddingApiKey = normalizedAiApiKey;
       }
 
-      await settingsService.updateSettings(payload);
+      const payload = buildOnboardingSettingsPayload({
+        llmModel,
+        currentSettings: settingsSnapshotRef.current,
+        changes,
+      });
+      const response = await settingsService.updateSettings(payload);
+      settingsSnapshotRef.current = response.data;
       toast.success('Settings saved successfully');
       setStep(3);
     } catch (error: any) {
