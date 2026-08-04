@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { freelancerService } from '@/services/freelancer.service';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth/context/auth-context';
@@ -13,6 +13,7 @@ import { settingsService } from '@/services/settings.service';
 import {
   buildFreelancerAuthorizeUrl,
   DEFAULT_FREELANCER_REDIRECT_URI,
+  FREELANCER_LOGOUT_URL,
 } from '@/lib/freelancer-oauth';
 
 interface IIntegrationsItem {
@@ -36,6 +37,16 @@ const Integrations = ({
   const { user } = useAuth();
   const [connected, setConnected] = useState(isFreelancerConnected);
   const [connecting, setConnecting] = useState(false);
+  const popupWatchIntervalRef = useRef<
+    ReturnType<typeof setInterval> | null
+  >(null);
+
+  const stopWatchingPopup = useCallback(() => {
+    if (popupWatchIntervalRef.current) {
+      clearInterval(popupWatchIntervalRef.current);
+      popupWatchIntervalRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     setConnected(isFreelancerConnected);
@@ -45,11 +56,13 @@ const Integrations = ({
     const OAUTH_CHANNEL = 'bidvora_freelancer_oauth';
 
     const handleSuccess = () => {
+      stopWatchingPopup();
       setConnected(true);
       setConnecting(false);
       if (onConnected) onConnected();
     };
     const handleError = (msg?: string) => {
+      stopWatchingPopup();
       setConnecting(false);
       toast.error(msg || 'Freelancer connection failed. Please try again.');
     };
@@ -75,10 +88,11 @@ const Integrations = ({
     window.addEventListener('message', handleMessage);
 
     return () => {
+      stopWatchingPopup();
       channel?.close();
       window.removeEventListener('message', handleMessage);
     };
-  }, [onConnected]);
+  }, [onConnected, stopWatchingPopup]);
 
   const handleConnectFreelancer = async () => {
     try {
@@ -100,7 +114,7 @@ const Integrations = ({
         const top = Math.round(window.screen.height / 2 - height / 2);
 
         const popup = window.open(
-          authorizeUrl,
+          FREELANCER_LOGOUT_URL,
           `freelancer_oauth_${Date.now()}`,
           `width=${width},height=${height},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=yes`,
         );
@@ -108,7 +122,26 @@ const Integrations = ({
         if (!popup || popup.closed || typeof popup.closed === 'undefined') {
           // Popup was blocked — inform the user rather than silently redirecting
           toast.error('Popup was blocked. Please allow popups for this site and try again.');
+          setConnecting(false);
+          return;
         }
+
+        // Freelancer rejects prompt=login. Clear its remembered browser
+        // session first, then start the supported account-selection flow.
+        window.setTimeout(() => {
+          if (!popup.closed) {
+            popup.location.href = authorizeUrl;
+            popup.focus();
+          }
+        }, 1500);
+
+        stopWatchingPopup();
+        popupWatchIntervalRef.current = window.setInterval(() => {
+          if (popup.closed) {
+            stopWatchingPopup();
+            setConnecting(false);
+          }
+        }, 500);
         // connecting spinner stays on until the parent receives the postMessage
       }
     } catch (error: any) {
