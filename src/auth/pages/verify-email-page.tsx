@@ -105,6 +105,16 @@ export function VerifyEmailPage() {
     return () => window.clearInterval(countdownInterval);
   }, [status]);
 
+  useEffect(() => {
+    if (status !== 'success' || verificationCountdown !== 0) return;
+
+    const redirectTimeout = window.setTimeout(() => {
+      navigate('/auth/checkout-review');
+    }, 250);
+
+    return () => window.clearTimeout(redirectTimeout);
+  }, [navigate, status, verificationCountdown]);
+
   return (
     <div className="flex flex-col items-center justify-center text-center gap-6 py-4 w-full max-w-md mx-auto">
       {status === 'verifying' && (
@@ -133,9 +143,13 @@ export function VerifyEmailPage() {
               Email Verified
             </h1>
             <p className="text-sm text-muted-foreground" aria-live="polite">
-              Your email has been successfully verified. This status will remain
-              on this page. Countdown: {verificationCountdown} second
-              {verificationCountdown === 1 ? '' : 's'}.
+              <span className="block">
+                Your email has been successfully verified.
+              </span>
+              <span className="block">
+                You will be redirected to the plan in: {verificationCountdown}{' '}
+                second{verificationCountdown === 1 ? '' : 's'}
+              </span>
             </p>
           </div>
         </>
