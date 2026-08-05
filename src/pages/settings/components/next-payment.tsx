@@ -3,6 +3,7 @@ import { CalendarDays, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/auth/context/auth-context';
 import { useSubscription } from '@/hooks/use-subscription';
 
 function formatDate(iso: string | null): string {
@@ -15,7 +16,12 @@ function formatDate(iso: string | null): string {
 }
 
 const NextPayment = () => {
+  const { user } = useAuth();
   const { subscription, loading } = useSubscription();
+  const nextPaymentDate =
+    user?.status === 'TRIAL'
+      ? user.trialEndsAt
+      : subscription?.currentPeriodEnd;
 
   return (
     <Card className="grow">
@@ -37,7 +43,7 @@ const NextPayment = () => {
                   <Skeleton className="h-4 w-28" />
                 ) : (
                   <span className="text-sm font-medium text-mono">
-                    on {formatDate(subscription?.currentPeriodEnd ?? null)}
+                    on {formatDate(nextPaymentDate ?? null)}
                   </span>
                 )}
                 <p className="text-sm text-secondary-foreground">Due date</p>
@@ -51,9 +57,6 @@ const NextPayment = () => {
             >
               <Check className="text-green-600" />
             </Button>
-          </div>
-          <div className="place-self-end lg:pb-2.5">
-            <Button>Manage Payment</Button>
           </div>
         </div>
       </CardContent>

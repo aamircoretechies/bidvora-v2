@@ -15,7 +15,11 @@ export function SubscriptionContent() {
   const { subscription, loading } = useSubscription();
   useTrialExpiryRefresh(subscription?.trialEndsAt ?? user?.trialEndsAt);
   const checkoutPending = Boolean(subscription?.checkoutPendingAt);
-  const hasNextPayment = Boolean(subscription?.currentPeriodEnd);
+  const nextPaymentDate =
+    user?.status === 'TRIAL'
+      ? user.trialEndsAt
+      : subscription?.currentPeriodEnd;
+  const hasNextPayment = Boolean(nextPaymentDate);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-7.5">
