@@ -9,6 +9,7 @@ import type {
 } from '@/services/settings.service';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { validateAndNormalizeBiddingTags } from './bidding-validation';
 import { ApiKeys, BiddingFilters, ExecutionLimits } from './components';
 
 type BiddingSettingsForm = Pick<AuthConfig, 'clientId' | 'clientSecret'> &
@@ -42,18 +43,12 @@ const nonNegativeNumberFields = new Set<keyof BiddingSettingsForm>([
 ]);
 
 export function BiddingContent() {
-  const {
-    settings,
-    isLoading,
-    loadError,
-    refetch,
-    updateSettings,
-    isSaving,
-  } = useApiSettings();
+  const { settings, isLoading, loadError, refetch, updateSettings, isSaving } =
+    useApiSettings();
   const [data, setData] = useState<Partial<BiddingSettingsForm>>({});
-  const [dirtyFields, setDirtyFields] = useState<Set<keyof BiddingSettingsForm>>(
-    new Set(),
-  );
+  const [dirtyFields, setDirtyFields] = useState<
+    Set<keyof BiddingSettingsForm>
+  >(new Set());
 
   useEffect(() => {
     if (!settings || dirtyFields.size > 0) return;
@@ -100,8 +95,25 @@ export function BiddingContent() {
       return;
     }
 
+    const tagValidation = validateAndNormalizeBiddingTags({
+      targetSkills: data.targetSkills,
+      targetCurrencies: data.targetCurrencies,
+      excludedCountries: data.excludedCountries,
+      blacklistKeywords: data.blacklistKeywords,
+    });
+
+    if (tagValidation.error) {
+      toast.error(tagValidation.error);
+      return;
+    }
+
+    const normalizedData: Partial<BiddingSettingsForm> = {
+      ...data,
+      ...tagValidation.values,
+    };
+
     const hasInvalidNumber = [...nonNegativeNumberFields].some((field) => {
-      const value = data[field];
+      const value = normalizedData[field];
       return (
         value !== undefined &&
         (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
@@ -115,12 +127,13 @@ export function BiddingContent() {
 
     const payload: UpdateSettingsPayload = {};
     dirtyFields.forEach((field) => {
-      const value = data[field];
+      const value = normalizedData[field];
       if (value !== undefined) Object.assign(payload, { [field]: value });
     });
 
     try {
       await updateSettings(payload);
+      setData(normalizedData);
       setDirtyFields(new Set());
       toast.success('Settings updated successfully');
     } catch (error) {
@@ -141,7 +154,9 @@ export function BiddingContent() {
   if (loadError || !settings) {
     return (
       <Alert variant="destructive" appearance="light">
-        <AlertIcon><AlertCircle /></AlertIcon>
+        <AlertIcon>
+          <AlertCircle />
+        </AlertIcon>
         <AlertTitle>
           {loadError instanceof Error
             ? loadError.message
@@ -174,7 +189,11 @@ export function BiddingContent() {
           onClick={handleSave}
           disabled={isSaving || dirtyFields.size === 0}
         >
-          {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+          {isSaving ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Save className="size-4" />
+          )}
           Save Configuration
         </Button>
       </div>

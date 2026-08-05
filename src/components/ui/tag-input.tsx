@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { inputVariants } from '@/components/ui/input';
 
 const tagInputContainerVariants = cva(
@@ -27,8 +27,9 @@ const tagInputContainerVariants = cva(
 );
 
 export interface TagInputProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'>,
-  VariantProps<typeof tagInputContainerVariants> {
+  extends
+    Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'>,
+    VariantProps<typeof tagInputContainerVariants> {
   value?: string[];
   defaultValue?: string[];
   onChange?: (tags: string[]) => void;
@@ -36,7 +37,18 @@ export interface TagInputProps
   disabled?: boolean;
   /** Characters that trigger tag creation. Defaults to [',', 'Enter'] */
   separators?: string[];
-  tagVariant?: 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'destructive';
+  tagVariant?:
+    | 'primary'
+    | 'secondary'
+    | 'success'
+    | 'warning'
+    | 'info'
+    | 'destructive';
+  maxTags?: number;
+  normalizeTag?: (tag: string) => string;
+  validateTag?: (tag: string) => string | null;
+  isDuplicate?: (tag: string, existingTags: string[]) => boolean;
+  onValidationError?: (message: string | null) => void;
 }
 
 function TagInput({
@@ -49,33 +61,75 @@ function TagInput({
   disabled = false,
   separators = [',', 'Enter'],
   tagVariant = 'secondary',
+  maxTags,
+  normalizeTag = (tag) => tag,
+  validateTag,
+  isDuplicate = (tag, existingTags) => existingTags.includes(tag),
+  onValidationError,
   ...props
 }: TagInputProps) {
-  const [internalTags, setInternalTags] = React.useState<string[]>(defaultValue ?? []);
+  const [internalTags, setInternalTags] = React.useState<string[]>(
+    defaultValue ?? [],
+  );
   const [inputValue, setInputValue] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const tags = value ?? internalTags;
 
-  const addTag = (raw: string) => {
-    const trimmed = raw.trim();
-    if (!trimmed || tags.includes(trimmed)) return;
-    const next = [...tags, trimmed];
-    if (!value) setInternalTags(next);
-    onChange?.(next);
+  const addTags = (rawTags: string[]) => {
+    const next = [...tags];
+    let firstError: string | null = null;
+    let addedCount = 0;
+
+    rawTags.forEach((raw) => {
+      const normalized = normalizeTag(raw.trim()).trim();
+
+      if (!normalized) {
+        firstError ??= 'Tags cannot be empty.';
+        return;
+      }
+
+      if (maxTags !== undefined && next.length >= maxTags) {
+        firstError ??= `You can add up to ${maxTags} tags.`;
+        return;
+      }
+
+      if (isDuplicate(normalized, next)) {
+        firstError ??= `"${normalized}" has already been added.`;
+        return;
+      }
+
+      const validationError = validateTag?.(normalized);
+      if (validationError) {
+        firstError ??= validationError;
+        return;
+      }
+
+      next.push(normalized);
+      addedCount += 1;
+    });
+
+    if (addedCount > 0) {
+      if (!value) setInternalTags(next);
+      onChange?.(next);
+    }
+
+    onValidationError?.(firstError);
+    return { addedCount, hasError: firstError !== null };
   };
 
   const removeTag = (index: number) => {
     const next = tags.filter((_, i) => i !== index);
     if (!value) setInternalTags(next);
     onChange?.(next);
+    onValidationError?.(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (separators.includes(e.key)) {
       e.preventDefault();
-      addTag(inputValue);
-      setInputValue('');
+      const result = addTags([inputValue]);
+      if (result.addedCount > 0 || !inputValue.trim()) setInputValue('');
     } else if (e.key === 'Backspace' && inputValue === '' && tags.length > 0) {
       removeTag(tags.length - 1);
     }
@@ -86,17 +140,18 @@ function TagInput({
     // Handle paste with commas
     if (val.includes(',')) {
       const parts = val.split(',');
-      parts.slice(0, -1).forEach((p) => addTag(p));
+      addTags(parts.slice(0, -1));
       setInputValue(parts[parts.length - 1]);
     } else {
       setInputValue(val);
+      onValidationError?.(null);
     }
   };
 
   const handleBlur = () => {
-    if (inputValue.trim()) {
-      addTag(inputValue);
-      setInputValue('');
+    if (inputValue.length > 0) {
+      const result = addTags([inputValue]);
+      if (result.addedCount > 0) setInputValue('');
     }
   };
 
@@ -118,7 +173,11 @@ function TagInput({
 
   return (
     <div
-      className={cn(tagInputContainerVariants({ variant }), disabled && 'opacity-60 cursor-not-allowed', className)}
+      className={cn(
+        tagInputContainerVariants({ variant }),
+        disabled && 'opacity-60 cursor-not-allowed',
+        className,
+      )}
       onClick={() => !disabled && inputRef.current?.focus()}
       {...props}
     >
