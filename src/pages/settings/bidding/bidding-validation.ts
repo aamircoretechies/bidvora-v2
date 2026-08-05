@@ -79,7 +79,7 @@ type FieldRule = {
 const fieldRules: Record<keyof ValidatedSettings, FieldRule> = {
   targetSkills: {
     label: 'Target Skills',
-    maxTags: 20,
+    maxTags: 150,
     validate: validateSkillTag,
   },
   targetCurrencies: {
