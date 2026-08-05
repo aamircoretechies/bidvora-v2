@@ -1,17 +1,19 @@
+import { useAuth } from '@/auth/context/auth-context';
 import { StoreClientTopbar } from '@/pages/store-client/components/common/topbar';
-import { DropdownMenu2 } from '@/partials/dropdown-menu/dropdown-menu-2';
-import { ChatSheet } from '@/partials/topbar/chat-sheet';
-import { NotificationsSheet } from '@/partials/topbar/notifications-sheet';
 import { UserDropdownMenu } from '@/partials/topbar/user-dropdown-menu';
-import { ChevronDown, MessageCircleMore, MessageSquareDot, BellIcon } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { toAbsoluteUrl } from '@/lib/helpers';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { getInitials } from '@/lib/helpers';
 
 export function HeaderTopbar() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  const displayName =
+    user?.name ||
+    user?.fullname ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
+    user?.username ||
+    'User';
+  const userInitials = getInitials(displayName, 2) || 'U';
 
   return (
     <div className="flex items-center gap-2 lg:gap-3.5 lg:w-[400px] justify-end">
@@ -50,16 +52,16 @@ export function HeaderTopbar() {
 
             <UserDropdownMenu
               trigger={
-                <img
-                  className="ms-2.5 size-9 rounded-full border-2 border-success shrink-0 cursor-pointer"
-                  src={toAbsoluteUrl('/media/avatars/blank.png')}
-                  alt="User Avatar"
-                />
+                <button
+                  type="button"
+                  className="ms-2.5 flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+                  aria-label={`Open profile menu for ${displayName}`}
+                >
+                  {userInitials}
+                </button>
               }
             />
           </div>
-
-
 
           {/*   <div className="flex items-center space-x-2">
             <Switch id="auto-update" size="sm" defaultChecked />

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Link } from 'react-router';
-import { toAbsoluteUrl } from '@/lib/helpers';
+import { getInitials } from '@/lib/helpers';
 import { useLanguage } from '@/providers/i18n-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,14 +44,14 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
 
   // Use display data from currentUser
   const displayName =
+    user?.name ||
     user?.fullname ||
     (user?.first_name && user?.last_name
       ? `${user.first_name} ${user.last_name}`
       : user?.username || 'User');
 
   const displayEmail = user?.email || '';
-  // const displayAvatar = user?.pic || toAbsoluteUrl('/media/avatars/300-2.png');
-  const displayAvatar = toAbsoluteUrl('/media/avatars/blank.png');
+  const userInitials = getInitials(displayName, 2) || 'U';
 
   const handleLanguage = (lang: Language) => {
     changeLanguage(lang);
@@ -79,11 +79,12 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
         {/* Header */}
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-2 min-w-0">
-            <img
-              className="size-9 rounded-full border-2 border-green-500 shrink-0"
-              src={displayAvatar}
-              alt="User avatar"
-            />
+            <div
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+              aria-hidden="true"
+            >
+              {userInitials}
+            </div>
             <div className="flex flex-col min-w-0">
               <Link
                 to="/account/home/user-profile"
