@@ -84,7 +84,7 @@ const fieldRules: Record<keyof ValidatedSettings, FieldRule> = {
   },
   targetCurrencies: {
     label: 'Target Currencies',
-    maxTags: 10,
+    maxTags: 150,
     normalize: normalizeUppercaseTag,
     validate: validateCurrencyTag,
     preventCaseInsensitiveDuplicates: true,
